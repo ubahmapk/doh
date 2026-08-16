@@ -9,5 +9,5 @@ pub use transport::doq::DoqTransport;
 pub use transport::dot::DotTransport;
 pub use transport::Transport;
 
-pub use hickory_proto::op::ResponseCode;
-pub use hickory_proto::rr::RecordType;
+pub use hickory_proto::op::{OpCode, ResponseCode};
+pub use hickory_proto::rr::{Name, RData, RecordType};

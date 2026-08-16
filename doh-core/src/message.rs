@@ -1,16 +1,18 @@
 use std::str::FromStr;
 
-use hickory_proto::op::{Message, ResponseCode};
+use hickory_proto::op::{Message, OpCode, ResponseCode};
 use hickory_proto::rr::{Name, RData, RecordType};
 
 use crate::error::DohError;
 
-/// A single answer record extracted from a DNS response, in a
+/// A single resource record extracted from a DNS response (answer,
+/// authority, or additional section — the wire shape is identical), in a
 /// transport-agnostic form. Carries typed data rather than pre-formatted
 /// strings so library consumers can work with the values directly (e.g.
 /// match on `RData::A` for an `Ipv4Addr`) instead of re-parsing `Display`
 /// output.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Answer {
     pub name: Name,
     pub record_type: RecordType,
@@ -24,9 +26,24 @@ pub struct Answer {
 /// `Refused`, etc.) is surfaced by the caller as `DohError::Dns` instead of
 /// being returned as a `ParsedResponse`.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ParsedResponse {
+    pub id: u16,
+    pub op_code: OpCode,
     pub response_code: ResponseCode,
+    pub authoritative: bool,
+    pub truncated: bool,
+    pub recursion_desired: bool,
+    pub recursion_available: bool,
+    pub authentic_data: bool,
+    pub checking_disabled: bool,
+    pub question_name: Name,
+    pub question_type: RecordType,
     pub answers: Vec<Answer>,
+    pub authorities: Vec<Answer>,
+    pub additionals: Vec<Answer>,
+    /// Size of the raw wire-format response, in bytes.
+    pub wire_size: usize,
 }
 
 /// Build a DNS query message for `name`/`record_type`, ready to be
@@ -65,17 +82,8 @@ pub fn encode_query_doq(message: &Message) -> Result<Vec<u8>, DohError> {
     encode_query(&zeroed)
 }
 
-/// Parse a raw DNS response into its response code and answer records.
-/// Callers are responsible for treating non-`NoError`/non-`NXDomain`
-/// response codes as errors (see `DohError::Dns`).
-pub fn parse_response(url: &str, bytes: &[u8]) -> Result<ParsedResponse, DohError> {
-    let message = Message::from_vec(bytes).map_err(|source| DohError::InvalidResponse {
-        url: url.to_string(),
-        source,
-    })?;
-
-    let answers = message
-        .answers
+fn records_to_answers(records: &[hickory_proto::rr::Record]) -> Vec<Answer> {
+    records
         .iter()
         .map(|record| Answer {
             name: record.name.clone(),
@@ -83,11 +91,41 @@ pub fn parse_response(url: &str, bytes: &[u8]) -> Result<ParsedResponse, DohErro
             ttl: record.ttl,
             rdata: record.data.clone(),
         })
-        .collect();
+        .collect()
+}
+
+/// Parse a raw DNS response into its header metadata, question, and
+/// answer/authority/additional records. Callers are responsible for
+/// treating non-`NoError`/non-`NXDomain` response codes as errors (see
+/// `DohError::Dns`).
+pub fn parse_response(url: &str, bytes: &[u8]) -> Result<ParsedResponse, DohError> {
+    let message = Message::from_vec(bytes).map_err(|source| DohError::InvalidResponse {
+        url: url.to_string(),
+        source,
+    })?;
+
+    let (question_name, question_type) = message
+        .queries
+        .first()
+        .map(|q| (q.name().clone(), q.query_type()))
+        .unwrap_or_else(|| (Name::root(), RecordType::A));
 
     Ok(ParsedResponse {
+        id: message.metadata.id,
+        op_code: message.metadata.op_code,
         response_code: message.metadata.response_code,
-        answers,
+        authoritative: message.metadata.authoritative,
+        truncated: message.metadata.truncation,
+        recursion_desired: message.metadata.recursion_desired,
+        recursion_available: message.metadata.recursion_available,
+        authentic_data: message.metadata.authentic_data,
+        checking_disabled: message.metadata.checking_disabled,
+        question_name,
+        question_type,
+        answers: records_to_answers(&message.answers),
+        authorities: records_to_answers(&message.authorities),
+        additionals: records_to_answers(&message.additionals),
+        wire_size: bytes.len(),
     })
 }
 

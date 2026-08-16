@@ -7,8 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-16
+
 ### Added
 
+- `doh-cli` output now closely follows [`q`](https://github.com/natesales/q):
+  `-f/--format <pretty|column|json|yaml|raw>` (default `pretty`); section
+  flags `--question`/`--answer` (default on)/`--authority`/`--additional`/
+  `--all`; `-S/--stats` (query time, response size, opcode/status/id/flags,
+  section counts); `-r/--short` (values only); TTL display flags
+  `--pretty-ttls`/`--short-ttls` (both default on)/`--round-ttls`; and
+  `--color`/`--no-color` with q's exact color scheme (name=purple,
+  ttl=green, type=magenta), auto TTY detection, and `NO_COLOR` support.
+- Record type(s) are now trailing positional args (`doh example.com MX
+  SOA ...`) instead of a single type, defaulting to `A, AAAA, NS, MX,
+  TXT, CNAME` (six types) when none are given — matching q's
+  `--default-rr-types` default. Every requested type is queried against
+  one transport instance (reusing DoQ's pooled connection); unlike q,
+  which aborts on the first failing type, `doh` queries all of them and
+  exits non-zero only if any failed — a deliberate improvement, not an
+  oversight.
+- `doh-core`'s `ParsedResponse` now also carries the authority and
+  additional sections (`authorities`, `additionals`, same `Answer`
+  shape as `answers`), header metadata needed for the new `--stats`
+  output (`id`, `op_code`, `authoritative`, `truncated`,
+  `recursion_desired`, `recursion_available`, `authentic_data`,
+  `checking_disabled`), the echoed question (`question_name`,
+  `question_type`), and the raw response size (`wire_size`).
 - `DotTransport`: DNS-over-TLS ([RFC 7858]) transport, sharing the
   `Transport` trait with `DohTransport`. `doh-cli --server tls://host[:port]`
   selects it (default port 853). Opens a new TCP+TLS connection per query,
@@ -22,17 +47,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole point of choosing QUIC. Same 10s timeout and 64 KiB message
   cap as DoT; ALPN `"doq"`, TLS 1.3 only, and the DNS message ID zeroed on
   the wire per RFC 9250 §4.2.1/§4.1/§4.2 respectively.
-- CI bumped `actions/checkout` to v7 (resolves a Node 20 deprecation
-  warning; v7 targets Node 24 natively).
-
-### Added
-
 - CI/README: MSRV declared as `rust-version = "1.88"` (the actual floor —
   the highest `rust-version` among current dependencies, `hickory-proto`),
   enforced by a new CI `msrv` job that pins the toolchain to exactly 1.88
   and runs `cargo check --workspace`. Also added a `coverage` CI job
   (`cargo-llvm-cov` + Codecov upload) and CI/license/MSRV/codecov badges
   to the README.
+- Request timeout (10s) on the DoH HTTP client; previously unset, so a
+  slow/black-holing server could hang indefinitely.
+- Response bodies (success and HTTP-error paths) are capped at 64 KiB to
+  bound memory use against an oversized response.
+
+### Changed
+
+- **Breaking (`doh-core`)**: `ParsedResponse` and `Answer` gained fields
+  (see above) and are now `#[non_exhaustive]`, matching `DohError`.
+  `Answer` carries typed `hickory_proto` values (`Name`, `RData`)
+  instead of pre-formatted strings.
+- HTTP client no longer follows redirects (`redirect::Policy::none()`), to
+  prevent a compromised/hostile DoH endpoint from silently redirecting
+  queries elsewhere.
+- Switched TLS root store from bundled `webpki-roots` to
+  `rustls-native-certs` (OS trust store).
+- Server-controlled error text is stripped of control characters before
+  being printed, to prevent terminal escape sequence injection.
+
+### Fixed
+
+- DNS response codes other than `NOERROR`/`NXDOMAIN` (e.g. `SERVFAIL`,
+  `REFUSED`) are now surfaced as `DohError::Dns` instead of being silently
+  reported as "no records" with a zero exit code.
 
 ### Security
 
@@ -42,33 +86,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tag from silently changing what code CI executes. Added
   `.github/dependabot.yml` (`github-actions` ecosystem) so the pins still
   get automated update PRs.
-
-### Fixed
-
-- DNS response codes other than `NOERROR`/`NXDOMAIN` (e.g. `SERVFAIL`,
-  `REFUSED`) are now surfaced as `DohError::Dns` instead of being silently
-  reported as "no records" with a zero exit code.
-- `doh-cli` reports `NXDOMAIN` distinctly from a genuinely empty answer set.
-
-### Added
-
-- Request timeout (10s) on the DoH HTTP client; previously unset, so a
-  slow/black-holing server could hang indefinitely.
-- Response bodies (success and HTTP-error paths) are capped at 64 KiB to
-  bound memory use against an oversized response.
-- `Answer` now carries typed `hickory_proto` values (`Name`, `RData`)
-  instead of pre-formatted strings.
-
-### Changed
-
-- HTTP client no longer follows redirects (`redirect::Policy::none()`), to
-  prevent a compromised/hostile DoH endpoint from silently redirecting
-  queries elsewhere.
-- Switched TLS root store from bundled `webpki-roots` to
-  `rustls-native-certs` (OS trust store).
-- `DohError` is now `#[non_exhaustive]`.
-- Server-controlled error text is stripped of control characters before
-  being printed, to prevent terminal escape sequence injection.
 
 ## [0.1.0] - 2026-08-15
 
@@ -87,5 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858
 [RFC 9250]: https://www.rfc-editor.org/rfc/rfc9250
 
-[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ubahmapk/doh/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ubahmapk/doh/releases/tag/v0.1.0

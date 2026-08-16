@@ -28,28 +28,54 @@ Planned, not yet implemented:
 
 ## Usage
 
+Output formatting and flags closely follow [`q`](https://github.com/natesales/q):
+
 ```sh
-# DoH: https:// selects DNS-over-HTTPS
-cargo run -p doh-cli -- example.com A --server https://dns.google/dns-query
+# default: 6 common types (A, AAAA, NS, MX, TXT, CNAME), pretty output
+doh example.com --server https://dns.google/dns-query
 
-# DoT: tls:// selects DNS-over-TLS, host[:port], default port 853
-cargo run -p doh-cli -- example.com A --server tls://dns.google
+# a specific type
+doh example.com MX --server https://dns.google/dns-query
 
-# DoQ: quic:// selects DNS-over-QUIC, host[:port], default port 853
-cargo run -p doh-cli -- example.com A --server quic://dns.adguard.com
+# JSON or YAML
+doh example.com MX --server https://dns.google/dns-query --format=json
+doh example.com MX --server https://dns.google/dns-query --format=yaml
+
+# dig-style raw output
+doh example.com MX --server https://dns.google/dns-query --format=raw
+
+# query timing and message stats
+doh example.com A --server https://dns.google/dns-query --stats
+
+# values only
+doh example.com A --server https://dns.google/dns-query --short
 ```
 
 ```
-example.com.	86400	A	93.184.216.34
+example.com. 5m A 93.184.216.34
 ```
 
 Options:
 
-- `record_type` (positional, default `A`) — e.g. `A`, `AAAA`, `CNAME`, `TXT`, `MX`
+- `<name>` (positional) — name to resolve
+- `[record_types...]` (positional, variadic) — e.g. `A AAAA MX`; defaults to `A AAAA NS MX TXT CNAME` if none given
 - `--server <addr>` (required) — `https://host/path` for DoH, `tls://host[:port]` for DoT, `quic://host[:port]` for DoQ
-- `--method get|post` (default `get`) — HTTP method used per RFC 8484 §4; ignored for DoT/DoQ
+- `--method get|post` (default `get`) — HTTP method per RFC 8484 §4; ignored for DoT/DoQ
+- `-f, --format <pretty|column|json|yaml|raw>` (default `pretty`)
+- `--question` / `--answer` (default on) / `--authority` / `--additional` / `--all` — which sections to show
+- `-S, --stats` — query time, response size, opcode/status/id/flags, section counts
+- `-r, --short` — record values only, no name/ttl/type columns
+- `--pretty-ttls` (default on) / `--short-ttls` (default on) / `--round-ttls` — TTL display formatting (e.g. `24h0m0s` → `24h`)
+- `--color` / `--no-color` — color is on by default when stdout is a terminal, off when piped, and honors `NO_COLOR`
 
-There is no default server — you must specify one explicitly.
+There is no default server — you must specify one explicitly. Multiple
+record types are queried sequentially against one transport instance
+(reusing the connection for DoQ's pooled model); if any type's query
+fails, `doh` still queries the rest and reports each result, then exits
+non-zero — a deliberate difference from `q`, which aborts on the first
+failure.
+
+Run `doh --help` for the full flag list.
 
 For DoT and DoQ, the same hostname is used both to resolve the connection
 address via the OS resolver and to validate the server's TLS certificate.
@@ -79,6 +105,8 @@ if response.response_code == ResponseCode::NXDomain {
 for answer in response.answers {
     println!("{} {} {}", answer.name, answer.ttl, answer.rdata);
 }
+// authority/additional sections and header metadata (id, opcode, flags,
+// wire_size) are also on `response` — see ParsedResponse's docs.
 ```
 
 `Transport::resolve` returns `Err(DohError::Dns { .. })` for any response
