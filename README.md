@@ -1,5 +1,10 @@
 # doh
 
+[![CI](https://github.com/ubahmapk/doh/actions/workflows/ci.yml/badge.svg)](https://github.com/ubahmapk/doh/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MSRV](https://img.shields.io/badge/MSRV-1.88-blue.svg)](Cargo.toml)
+[![codecov](https://codecov.io/gh/ubahmapk/doh/branch/main/graph/badge.svg)](https://codecov.io/gh/ubahmapk/doh)
+
 A Rust DNS client library and CLI for secure DNS transports, starting with
 DNS-over-HTTPS ([RFC 8484]).
 

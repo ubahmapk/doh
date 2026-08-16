@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI bumped `actions/checkout` to v7 (resolves a Node 20 deprecation
   warning; v7 targets Node 24 natively).
 
+### Added
+
+- CI/README: MSRV declared as `rust-version = "1.88"` (the actual floor —
+  the highest `rust-version` among current dependencies, `hickory-proto`),
+  enforced by a new CI `msrv` job that pins the toolchain to exactly 1.88
+  and runs `cargo check --workspace`. Also added a `coverage` CI job
+  (`cargo-llvm-cov` + Codecov upload) and CI/license/MSRV/codecov badges
+  to the README.
+
 ### Security
 
 - CI: pinned `actions/checkout`, `dtolnay/rust-toolchain`, and
