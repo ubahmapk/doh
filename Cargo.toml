@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://github.com/ubahmapk/doh"
 
 [workspace.dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "rustls-native-certs", "http2", "query", "stream"] }
 futures-util = { version = "0.3", default-features = false }
 hickory-proto = "0.26"
@@ -22,3 +22,4 @@ rustls = "0.23"
 rustls-native-certs = "0.8"
 rustls-pki-types = "1"
 tokio-rustls = "0.26"
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }

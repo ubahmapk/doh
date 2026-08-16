@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selects it (default port 853). Opens a new TCP+TLS connection per query,
   10s connect/query timeout, 64 KiB message cap (RFC 1035 §4.2.2 stream
   framing), OS trust store via `rustls-native-certs`, no connection pooling.
+- `DoqTransport`: DNS-over-QUIC ([RFC 9250]) transport, via `quinn`.
+  `doh-cli --server quic://host[:port]` selects it (default port 853,
+  shared with DoT). Unlike `DotTransport`, pools and reuses one QUIC
+  connection per transport instance across queries (reconnecting
+  transparently if it closes) rather than opening a new one per query —
+  the whole point of choosing QUIC. Same 10s timeout and 64 KiB message
+  cap as DoT; ALPN `"doq"`, TLS 1.3 only, and the DNS message ID zeroed on
+  the wire per RFC 9250 §4.2.1/§4.1/§4.2 respectively.
 - CI bumped `actions/checkout` to v7 (resolves a Node 20 deprecation
   warning; v7 targets Node 24 natively).
 
@@ -59,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [RFC 8484]: https://www.rfc-editor.org/rfc/rfc8484
 [RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858
+[RFC 9250]: https://www.rfc-editor.org/rfc/rfc9250
 
 [Unreleased]: https://github.com/ubahmapk/doh/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ubahmapk/doh/releases/tag/v0.1.0

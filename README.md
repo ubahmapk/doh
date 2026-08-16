@@ -8,11 +8,11 @@ transport fails, it prints a clear, actionable error and exits non-zero.
 
 ## Status
 
-Implemented: DNS-over-HTTPS ([RFC 8484]), DNS-over-TLS ([RFC 7858]).
+Implemented: DNS-over-HTTPS ([RFC 8484]), DNS-over-TLS ([RFC 7858]),
+DNS-over-QUIC ([RFC 9250]).
 
 Planned, not yet implemented:
 
-- DNS-over-QUIC ([RFC 9250])
 - Oblivious DoH ([RFC 9230])
 - DNSCrypt v2
 
@@ -29,6 +29,9 @@ cargo run -p doh-cli -- example.com A --server https://dns.google/dns-query
 
 # DoT: tls:// selects DNS-over-TLS, host[:port], default port 853
 cargo run -p doh-cli -- example.com A --server tls://dns.google
+
+# DoQ: quic:// selects DNS-over-QUIC, host[:port], default port 853
+cargo run -p doh-cli -- example.com A --server quic://dns.adguard.com
 ```
 
 ```
@@ -38,21 +41,27 @@ example.com.	86400	A	93.184.216.34
 Options:
 
 - `record_type` (positional, default `A`) — e.g. `A`, `AAAA`, `CNAME`, `TXT`, `MX`
-- `--server <addr>` (required) — `https://host/path` for DoH, `tls://host[:port]` for DoT
-- `--method get|post` (default `get`) — HTTP method used per RFC 8484 §4; ignored for DoT
+- `--server <addr>` (required) — `https://host/path` for DoH, `tls://host[:port]` for DoT, `quic://host[:port]` for DoQ
+- `--method get|post` (default `get`) — HTTP method used per RFC 8484 §4; ignored for DoT/DoQ
 
 There is no default server — you must specify one explicitly.
 
-For DoT, the same hostname is used both to resolve the connection address
-via the OS resolver and to validate the server's TLS certificate. Finding
-the DoT server's IP therefore isn't itself protected by DoT — only the
-queries sent to it, once connected, are. Each query opens a new TCP+TLS
-connection; connections are not pooled or pipelined.
+For DoT and DoQ, the same hostname is used both to resolve the connection
+address via the OS resolver and to validate the server's TLS certificate.
+Finding the server's IP therefore isn't itself protected — only the
+queries sent to it, once connected, are.
+
+DoT opens a new TCP+TLS connection per query; connections are not pooled.
+DoQ instead pools one QUIC connection per `DoqTransport`/CLI invocation,
+reused across queries and transparently reconnected if it closes — this is
+the main practical difference between the two: DoQ amortizes connection
+setup, DoT does not.
 
 ## Library
 
 The `doh-core` crate exposes the `Transport` trait, implemented by
-`DohTransport` and `DotTransport`, for use in other Rust programs:
+`DohTransport`, `DotTransport`, and `DoqTransport`, for use in other Rust
+programs:
 
 ```rust
 use doh_core::{DohTransport, HttpMethod, RecordType, ResponseCode, Transport};

@@ -2,11 +2,13 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use clap::Parser;
-use doh_core::{DohTransport, DotTransport, HttpMethod, RecordType, ResponseCode, Transport};
+use doh_core::{
+    DohTransport, DoqTransport, DotTransport, HttpMethod, RecordType, ResponseCode, Transport,
+};
 
-/// Resolve a DNS name over a secure transport (DoH or DoT). No fallback to
-/// classic UDP/TCP DNS: on failure this prints a clear error and exits
-/// non-zero.
+/// Resolve a DNS name over a secure transport (DoH, DoT, or DoQ). No
+/// fallback to classic UDP/TCP DNS: on failure this prints a clear error
+/// and exits non-zero.
 #[derive(Parser)]
 #[command(name = "doh", version, about)]
 struct Args {
@@ -18,11 +20,12 @@ struct Args {
     record_type: String,
 
     /// Server address. `https://host/path` selects DNS-over-HTTPS;
-    /// `tls://host[:port]` selects DNS-over-TLS (default port 853).
+    /// `tls://host[:port]` selects DNS-over-TLS; `quic://host[:port]`
+    /// selects DNS-over-QUIC (default port 853 for both DoT and DoQ).
     #[arg(short, long)]
     server: String,
 
-    /// HTTP method used to send the query (DoH only; ignored for DoT)
+    /// HTTP method used to send the query (DoH only; ignored for DoT/DoQ)
     #[arg(long, value_enum, default_value = "get")]
     method: Method,
 }
@@ -48,6 +51,8 @@ fn build_transport(
 ) -> Result<Box<dyn Transport>, doh_core::DohError> {
     if let Some(addr) = server.strip_prefix("tls://") {
         Ok(Box::new(DotTransport::new(addr)?))
+    } else if let Some(addr) = server.strip_prefix("quic://") {
+        Ok(Box::new(DoqTransport::new(addr)?))
     } else {
         Ok(Box::new(DohTransport::new(server, method)?))
     }

@@ -21,20 +21,20 @@ pub enum DohError {
         source: reqwest::Error,
     },
 
-    #[error("invalid DoT server address '{addr}': {reason}")]
+    #[error("invalid server address '{addr}': {reason}")]
     InvalidServerAddress { addr: String, reason: String },
 
     #[error("failed to load TLS root certificates: {reason}")]
     TlsConfig { reason: String },
 
     #[error(
-        "timed out connecting to DoT server {addr}\n\
+        "timed out connecting to {addr}\n\
          hint: check the address/port and your network connection; no classic DNS fallback is attempted"
     )]
     Timeout { addr: String },
 
     #[error(
-        "connection to DoT server {addr} failed: {source}\n\
+        "connection to {addr} failed: {source}\n\
          hint: check the address/port and your network connection; no classic DNS fallback is attempted"
     )]
     Io {
@@ -43,7 +43,13 @@ pub enum DohError {
         source: std::io::Error,
     },
 
-    #[error("DNS message for {addr} exceeds the 64 KiB TCP/TLS framing limit: {reason}")]
+    #[error(
+        "QUIC connection to {addr} failed: {reason}\n\
+         hint: check the address/port and your network connection; no classic DNS fallback is attempted"
+    )]
+    Quic { addr: String, reason: String },
+
+    #[error("DNS message for {addr} exceeds the 64 KiB stream framing limit: {reason}")]
     MessageTooLarge { addr: String, reason: String },
 
     #[error(
@@ -101,6 +107,13 @@ impl DohError {
 
     pub fn invalid_server_address(addr: impl Into<String>, reason: impl fmt::Display) -> Self {
         Self::InvalidServerAddress {
+            addr: addr.into(),
+            reason: reason.to_string(),
+        }
+    }
+
+    pub fn quic(addr: impl Into<String>, reason: impl fmt::Display) -> Self {
+        Self::Quic {
             addr: addr.into(),
             reason: reason.to_string(),
         }

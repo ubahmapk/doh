@@ -53,6 +53,18 @@ pub fn encode_query(message: &Message) -> Result<Vec<u8>, DohError> {
     })
 }
 
+/// Serialize a query message for DoQ, per RFC 9250 section 4.2.1: the DNS
+/// message ID MUST be set to 0 on the wire (stream mapping, not the ID,
+/// correlates queries and responses). `build_query` itself is left
+/// untouched — DoH/DoT still want a normal random ID — so this clones the
+/// message and zeroes the ID only on the copy that actually goes on the
+/// wire.
+pub fn encode_query_doq(message: &Message) -> Result<Vec<u8>, DohError> {
+    let mut zeroed = message.clone();
+    zeroed.metadata.id = 0;
+    encode_query(&zeroed)
+}
+
 /// Parse a raw DNS response into its response code and answer records.
 /// Callers are responsible for treating non-`NoError`/non-`NXDomain`
 /// response codes as errors (see `DohError::Dns`).
@@ -94,5 +106,23 @@ mod tests {
     fn build_query_rejects_invalid_name() {
         let err = build_query("exa mple..com", RecordType::A).unwrap_err();
         assert!(matches!(err, DohError::InvalidName { .. }));
+    }
+
+    #[test]
+    fn encode_query_doq_zeroes_the_message_id() {
+        let message = build_query("example.com", RecordType::A).expect("valid query");
+        let bytes = encode_query_doq(&message).expect("encode");
+        // RFC 9250 section 4.2.1: the DNS message ID field (the first two
+        // bytes of the header) MUST be 0 on the wire for DoQ.
+        assert_eq!(&bytes[0..2], &[0, 0]);
+    }
+
+    #[test]
+    fn encode_query_does_not_zero_the_message_id() {
+        let message = build_query("example.com", RecordType::A).expect("valid query");
+        let bytes = encode_query(&message).expect("encode");
+        // Sanity check that the non-DoQ path is untouched by the DoQ
+        // zeroing behavior: the original random ID survives on the wire.
+        assert_eq!(&bytes[0..2], &message.metadata.id.to_be_bytes());
     }
 }
