@@ -46,11 +46,41 @@ The `doh-core` crate exposes the `Transport` trait and `DohTransport`
 implementation for use in other Rust programs:
 
 ```rust
-use doh_core::{DohTransport, HttpMethod, RecordType, Transport};
+use doh_core::{DohTransport, HttpMethod, RecordType, ResponseCode, Transport};
 
 let transport = DohTransport::new("https://dns.google/dns-query", HttpMethod::Get)?;
-let answers = transport.resolve("example.com", RecordType::A).await?;
+let response = transport.resolve("example.com", RecordType::A).await?;
+if response.response_code == ResponseCode::NXDomain {
+    // name does not exist — this is a successful response, not an error
+}
+for answer in response.answers {
+    println!("{} {} {}", answer.name, answer.ttl, answer.rdata);
+}
 ```
+
+`Transport::resolve` returns `Err(DohError::Dns { .. })` for any response
+code other than `NoError`/`NXDomain` (e.g. `ServFail`, `Refused`) — a DNS
+server error is never silently reported as "no records."
+
+## Security posture
+
+- **No fallback to classic plaintext UDP/TCP DNS**, at any layer. On
+  failure the tool reports a clear, actionable error and exits non-zero.
+- **10 second request timeout** — a slow or black-holing server fails
+  instead of hanging the caller forever.
+- **HTTP redirects are never followed** (`redirect::Policy::none()`). A
+  hostile or compromised DoH endpoint cannot silently bounce queries to a
+  third-party host you never chose.
+- **Response bodies are capped at 64 KiB** (the same limit classic
+  DNS-over-TCP framing uses) on both the success and error paths, so a
+  malicious/oversized response can't be used to exhaust memory.
+- **TLS certificate verification uses the OS trust store**
+  (`rustls-native-certs`), so it honors corporate/custom CAs already
+  installed on the machine — trust follows whatever the OS is configured
+  to trust, for better or worse.
+- Server-controlled error text (HTTP error bodies) has control characters
+  stripped before being printed to the terminal, to avoid terminal escape
+  sequence injection from a malicious server.
 
 ## Versioning
 

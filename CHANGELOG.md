@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- DNS response codes other than `NOERROR`/`NXDOMAIN` (e.g. `SERVFAIL`,
+  `REFUSED`) are now surfaced as `DohError::Dns` instead of being silently
+  reported as "no records" with a zero exit code.
+- `doh-cli` reports `NXDOMAIN` distinctly from a genuinely empty answer set.
+
+### Added
+
+- Request timeout (10s) on the DoH HTTP client; previously unset, so a
+  slow/black-holing server could hang indefinitely.
+- Response bodies (success and HTTP-error paths) are capped at 64 KiB to
+  bound memory use against an oversized response.
+- `Answer` now carries typed `hickory_proto` values (`Name`, `RData`)
+  instead of pre-formatted strings.
+
+### Changed
+
+- HTTP client no longer follows redirects (`redirect::Policy::none()`), to
+  prevent a compromised/hostile DoH endpoint from silently redirecting
+  queries elsewhere.
+- Switched TLS root store from bundled `webpki-roots` to
+  `rustls-native-certs` (OS trust store).
+- `DohError` is now `#[non_exhaustive]`.
+- Server-controlled error text is stripped of control characters before
+  being printed, to prevent terminal escape sequence injection.
+
 ## [0.1.0] - 2026-08-15
 
 ### Added

@@ -2,7 +2,7 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use clap::Parser;
-use doh_core::{DohTransport, HttpMethod, RecordType, Transport};
+use doh_core::{DohTransport, HttpMethod, RecordType, ResponseCode, Transport};
 
 /// Resolve a DNS name over HTTPS (RFC 8484). No fallback to classic
 /// UDP/TCP DNS: on failure this prints a clear error and exits non-zero.
@@ -61,12 +61,16 @@ async fn main() -> ExitCode {
     };
 
     match transport.resolve(&args.name, record_type).await {
-        Ok(answers) if answers.is_empty() => {
+        Ok(response) if response.response_code == ResponseCode::NXDomain => {
+            println!("{} does not exist (NXDOMAIN)", args.name);
+            ExitCode::SUCCESS
+        }
+        Ok(response) if response.answers.is_empty() => {
             println!("{} has no {} records", args.name, args.record_type);
             ExitCode::SUCCESS
         }
-        Ok(answers) => {
-            for answer in answers {
+        Ok(response) => {
+            for answer in response.answers {
                 println!(
                     "{}\t{}\t{}\t{}",
                     answer.name, answer.ttl, answer.record_type, answer.rdata

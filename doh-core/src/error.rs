@@ -1,10 +1,25 @@
 use std::fmt;
 
+use hickory_proto::op::ResponseCode;
+
 /// User-facing errors. Every variant renders as a clear, actionable message —
 /// there is no classic-DNS fallback path, so these are the only signal the
 /// caller gets when a secure transport fails.
+///
+/// Marked `#[non_exhaustive]`: later phases add DoT/DoQ/ODoH/DNSCrypt
+/// transports, each with their own failure modes, and new variants should
+/// not be a breaking change for downstream matches.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum DohError {
+    #[error("DoH server {url} returned DNS error {code}")]
+    Dns { url: String, code: ResponseCode },
+
+    #[error("failed to build HTTP client: {source}")]
+    ClientBuild {
+        #[source]
+        source: reqwest::Error,
+    },
     #[error(
         "could not reach DoH server {url}: {source}\n\
          hint: check the URL and your network connection; no classic DNS fallback is attempted"

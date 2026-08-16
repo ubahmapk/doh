@@ -1,18 +1,32 @@
 use std::str::FromStr;
 
-use hickory_proto::op::Message;
+use hickory_proto::op::{Message, ResponseCode};
 use hickory_proto::rr::{Name, RData, RecordType};
 
 use crate::error::DohError;
 
 /// A single answer record extracted from a DNS response, in a
-/// transport-agnostic form.
+/// transport-agnostic form. Carries typed data rather than pre-formatted
+/// strings so library consumers can work with the values directly (e.g.
+/// match on `RData::A` for an `Ipv4Addr`) instead of re-parsing `Display`
+/// output.
 #[derive(Debug, Clone)]
 pub struct Answer {
-    pub name: String,
+    pub name: Name,
     pub record_type: RecordType,
     pub ttl: u32,
-    pub rdata: String,
+    pub rdata: RData,
+}
+
+/// A successfully-received and parsed DNS response. `NXDomain` is a
+/// successful outcome (the name does not exist) and is carried here rather
+/// than as an error; any other non-`NoError` response code (`ServFail`,
+/// `Refused`, etc.) is surfaced by the caller as `DohError::Dns` instead of
+/// being returned as a `ParsedResponse`.
+#[derive(Debug, Clone)]
+pub struct ParsedResponse {
+    pub response_code: ResponseCode,
+    pub answers: Vec<Answer>,
 }
 
 /// Build a DNS query message for `name`/`record_type`, ready to be
@@ -39,27 +53,30 @@ pub fn encode_query(message: &Message) -> Result<Vec<u8>, DohError> {
     })
 }
 
-/// Parse a raw DNS response and extract its answer records.
-pub fn parse_response(url: &str, bytes: &[u8]) -> Result<Vec<Answer>, DohError> {
+/// Parse a raw DNS response into its response code and answer records.
+/// Callers are responsible for treating non-`NoError`/non-`NXDomain`
+/// response codes as errors (see `DohError::Dns`).
+pub fn parse_response(url: &str, bytes: &[u8]) -> Result<ParsedResponse, DohError> {
     let message = Message::from_vec(bytes).map_err(|source| DohError::InvalidResponse {
         url: url.to_string(),
         source,
     })?;
 
-    Ok(message
+    let answers = message
         .answers
         .iter()
         .map(|record| Answer {
-            name: record.name.to_string(),
+            name: record.name.clone(),
             record_type: record.record_type(),
             ttl: record.ttl,
-            rdata: rdata_to_string(&record.data),
+            rdata: record.data.clone(),
         })
-        .collect())
-}
+        .collect();
 
-fn rdata_to_string(rdata: &RData) -> String {
-    rdata.to_string()
+    Ok(ParsedResponse {
+        response_code: message.metadata.response_code,
+        answers,
+    })
 }
 
 #[cfg(test)]
