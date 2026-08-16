@@ -120,8 +120,25 @@ fn build_transport(
     }
 }
 
+/// Reset SIGPIPE to its default disposition. Rust ignores SIGPIPE by
+/// default, so writing to a closed pipe (e.g. `doh ... | head`) surfaces
+/// as an `Err` that `println!` panics on. Resetting to `SIG_DFL` restores
+/// the usual Unix behavior: the OS kills the process silently, matching
+/// tools like `dig`.
+#[cfg(unix)]
+fn reset_sigpipe() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+#[cfg(not(unix))]
+fn reset_sigpipe() {}
+
 #[tokio::main]
 async fn main() -> ExitCode {
+    reset_sigpipe();
+
     let args = Args::parse();
 
     let requested_types: Vec<String> = if args.record_types.is_empty() {

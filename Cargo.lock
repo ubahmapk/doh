@@ -346,6 +346,7 @@ dependencies = [
  "chrono",
  "clap",
  "doh-core",
+ "libc",
  "serde",
  "serde_json",
  "serde_norway",

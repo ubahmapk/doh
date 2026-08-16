@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `doh-cli` no longer panics with a broken-pipe backtrace when its output
+  is piped into a command that closes its stdin early (e.g. `doh ... |
+  head`) on Unix. SIGPIPE is now reset to its default disposition at
+  process start, so the OS terminates the process silently instead, the
+  same way `dig` and most Unix CLI tools behave. ([#1])
+
+[#1]: https://github.com/ubahmapk/doh/issues/1
+
 ## [0.2.0] - 2026-08-16
 
 ### Added
