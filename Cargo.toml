@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["doh-core", "doh-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ubahmapk/doh"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "webpki-roots", "http2", "query"] }
+hickory-proto = "0.26"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+base64 = "0.23"
+async-trait = "0.1"
