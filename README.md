@@ -52,6 +52,11 @@ let transport = DohTransport::new("https://dns.google/dns-query", HttpMethod::Ge
 let answers = transport.resolve("example.com", RecordType::A).await?;
 ```
 
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/). See
+[CHANGELOG.md](CHANGELOG.md) for notable changes per release.
+
 ## Development
 
 ```sh
