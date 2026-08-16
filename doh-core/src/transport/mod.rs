@@ -1,4 +1,5 @@
 pub mod doh;
+pub mod dot;
 
 use async_trait::async_trait;
 use hickory_proto::rr::RecordType;

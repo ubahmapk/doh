@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `DotTransport`: DNS-over-TLS ([RFC 7858]) transport, sharing the
+  `Transport` trait with `DohTransport`. `doh-cli --server tls://host[:port]`
+  selects it (default port 853). Opens a new TCP+TLS connection per query,
+  10s connect/query timeout, 64 KiB message cap (RFC 1035 §4.2.2 stream
+  framing), OS trust store via `rustls-native-certs`, no connection pooling.
+- CI bumped `actions/checkout` to v7 (resolves a Node 20 deprecation
+  warning; v7 targets Node 24 natively).
+
 ### Fixed
 
 - DNS response codes other than `NOERROR`/`NXDOMAIN` (e.g. `SERVFAIL`,
@@ -48,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build, test, clippy, fmt.
 
 [RFC 8484]: https://www.rfc-editor.org/rfc/rfc8484
+[RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858
 
 [Unreleased]: https://github.com/ubahmapk/doh/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ubahmapk/doh/releases/tag/v0.1.0

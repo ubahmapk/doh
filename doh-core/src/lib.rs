@@ -5,6 +5,7 @@ pub mod transport;
 pub use error::DohError;
 pub use message::{Answer, ParsedResponse};
 pub use transport::doh::{DohTransport, HttpMethod};
+pub use transport::dot::DotTransport;
 pub use transport::Transport;
 
 pub use hickory_proto::op::ResponseCode;

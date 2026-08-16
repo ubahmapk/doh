@@ -2,10 +2,11 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use clap::Parser;
-use doh_core::{DohTransport, HttpMethod, RecordType, ResponseCode, Transport};
+use doh_core::{DohTransport, DotTransport, HttpMethod, RecordType, ResponseCode, Transport};
 
-/// Resolve a DNS name over HTTPS (RFC 8484). No fallback to classic
-/// UDP/TCP DNS: on failure this prints a clear error and exits non-zero.
+/// Resolve a DNS name over a secure transport (DoH or DoT). No fallback to
+/// classic UDP/TCP DNS: on failure this prints a clear error and exits
+/// non-zero.
 #[derive(Parser)]
 #[command(name = "doh", version, about)]
 struct Args {
@@ -16,11 +17,12 @@ struct Args {
     #[arg(default_value = "A")]
     record_type: String,
 
-    /// DoH server URL, e.g. https://dns.google/dns-query
+    /// Server address. `https://host/path` selects DNS-over-HTTPS;
+    /// `tls://host[:port]` selects DNS-over-TLS (default port 853).
     #[arg(short, long)]
     server: String,
 
-    /// HTTP method used to send the query
+    /// HTTP method used to send the query (DoH only; ignored for DoT)
     #[arg(long, value_enum, default_value = "get")]
     method: Method,
 }
@@ -40,6 +42,17 @@ impl From<Method> for HttpMethod {
     }
 }
 
+fn build_transport(
+    server: &str,
+    method: HttpMethod,
+) -> Result<Box<dyn Transport>, doh_core::DohError> {
+    if let Some(addr) = server.strip_prefix("tls://") {
+        Ok(Box::new(DotTransport::new(addr)?))
+    } else {
+        Ok(Box::new(DohTransport::new(server, method)?))
+    }
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let args = Args::parse();
@@ -52,7 +65,7 @@ async fn main() -> ExitCode {
         }
     };
 
-    let transport = match DohTransport::new(&args.server, args.method.into()) {
+    let transport = match build_transport(&args.server, args.method.into()) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("error: {e}");

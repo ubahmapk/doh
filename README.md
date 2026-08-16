@@ -8,11 +8,10 @@ transport fails, it prints a clear, actionable error and exits non-zero.
 
 ## Status
 
-Phase 1 (this release): DoH only.
+Implemented: DNS-over-HTTPS ([RFC 8484]), DNS-over-TLS ([RFC 7858]).
 
 Planned, not yet implemented:
 
-- DNS-over-TLS ([RFC 7858])
 - DNS-over-QUIC ([RFC 9250])
 - Oblivious DoH ([RFC 9230])
 - DNSCrypt v2
@@ -25,7 +24,11 @@ Planned, not yet implemented:
 ## Usage
 
 ```sh
+# DoH: https:// selects DNS-over-HTTPS
 cargo run -p doh-cli -- example.com A --server https://dns.google/dns-query
+
+# DoT: tls:// selects DNS-over-TLS, host[:port], default port 853
+cargo run -p doh-cli -- example.com A --server tls://dns.google
 ```
 
 ```
@@ -35,15 +38,21 @@ example.com.	86400	A	93.184.216.34
 Options:
 
 - `record_type` (positional, default `A`) — e.g. `A`, `AAAA`, `CNAME`, `TXT`, `MX`
-- `--server <url>` (required) — DoH server URL, must be `https://`
-- `--method get|post` (default `get`) — HTTP method used per RFC 8484 §4
+- `--server <addr>` (required) — `https://host/path` for DoH, `tls://host[:port]` for DoT
+- `--method get|post` (default `get`) — HTTP method used per RFC 8484 §4; ignored for DoT
 
-There is no default DoH server — you must specify one explicitly.
+There is no default server — you must specify one explicitly.
+
+For DoT, the same hostname is used both to resolve the connection address
+via the OS resolver and to validate the server's TLS certificate. Finding
+the DoT server's IP therefore isn't itself protected by DoT — only the
+queries sent to it, once connected, are. Each query opens a new TCP+TLS
+connection; connections are not pooled or pipelined.
 
 ## Library
 
-The `doh-core` crate exposes the `Transport` trait and `DohTransport`
-implementation for use in other Rust programs:
+The `doh-core` crate exposes the `Transport` trait, implemented by
+`DohTransport` and `DotTransport`, for use in other Rust programs:
 
 ```rust
 use doh_core::{DohTransport, HttpMethod, RecordType, ResponseCode, Transport};
