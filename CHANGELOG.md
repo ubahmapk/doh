@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI bumped `actions/checkout` to v7 (resolves a Node 20 deprecation
   warning; v7 targets Node 24 natively).
 
+### Security
+
+- CI: pinned `actions/checkout`, `dtolnay/rust-toolchain`, and
+  `Swatinem/rust-cache` to full commit SHAs instead of mutable tags/branches
+  (semgrep `github-actions-mutable-action-tag`), to prevent a repointed
+  tag from silently changing what code CI executes. Added
+  `.github/dependabot.yml` (`github-actions` ecosystem) so the pins still
+  get automated update PRs.
+
 ### Fixed
 
 - DNS response codes other than `NOERROR`/`NXDOMAIN` (e.g. `SERVFAIL`,
