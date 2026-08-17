@@ -165,6 +165,7 @@ mod tests {
 
     #[test]
     fn missing_file_yields_default_config() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch file, no privilege boundary
         let path = std::env::temp_dir().join("doh-config-test-missing-does-not-exist.toml");
         let config = load(&path).expect("missing file is not an error");
         assert!(config.server.is_none());
@@ -173,6 +174,7 @@ mod tests {
 
     #[test]
     fn malformed_toml_is_a_clear_error() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch file, no privilege boundary
         let path = std::env::temp_dir().join("doh-config-test-malformed.toml");
         std::fs::write(&path, "this is not valid = = toml").unwrap();
         let err = load(&path).unwrap_err();
@@ -182,6 +184,7 @@ mod tests {
 
     #[test]
     fn partial_config_leaves_other_fields_none() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch file, no privilege boundary
         let path = std::env::temp_dir().join("doh-config-test-partial.toml");
         std::fs::write(
             &path,
@@ -210,6 +213,7 @@ mod tests {
 
     #[test]
     fn init_writes_a_template_that_round_trips_as_all_none() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch dir, no privilege boundary
         let dir = std::env::temp_dir().join(format!("doh-config-init-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.toml");
@@ -240,6 +244,7 @@ mod tests {
 
     #[test]
     fn init_does_not_overwrite_an_existing_file() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch dir, no privilege boundary
         let dir = std::env::temp_dir().join(format!(
             "doh-config-init-exists-test-{}",
             std::process::id()
@@ -263,6 +268,7 @@ mod tests {
 
     #[test]
     fn init_creates_missing_parent_directories() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir -- test-only scratch dir, no privilege boundary
         let dir = std::env::temp_dir().join(format!(
             "doh-config-init-mkdir-test-{}/nested/dirs",
             std::process::id()

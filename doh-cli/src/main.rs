@@ -203,6 +203,7 @@ fn build_transport(
 /// tools like `dig`.
 #[cfg(unix)]
 fn reset_sigpipe() {
+    // nosemgrep: rust.lang.security.unsafe-usage.unsafe-usage -- single, narrow libc::signal FFI call, no memory unsafety
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
