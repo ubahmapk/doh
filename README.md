@@ -173,6 +173,30 @@ for answer in response.answers {
 code other than `NoError`/`NXDomain` (e.g. `ServFail`, `Refused`) — a DNS
 server error is never silently reported as "no records."
 
+### Python bindings
+
+[`py-doh-core`](py-doh-core) provides PyO3 bindings for `doh-core`:
+`DohTransport`/`DotTransport`/`DoqTransport`, each with a blocking
+`resolve()` and an `async def`-compatible `aresolve()`, returning typed
+`ParsedResponse`/`Answer` objects (`OpCode`/`ResponseCode` are real enums,
+not magic strings) instead of plain dicts.
+
+```python
+import py_doh_core as doh
+
+transport = doh.DohTransport("https://dns.google/dns-query")
+response = transport.resolve("example.com", "A")
+if response.response_code == doh.ResponseCode.NXDOMAIN:
+    ...  # name does not exist — this is a successful response, not an error
+for answer in response.answers:
+    print(answer.name, answer.ttl, answer.rdata)
+```
+
+Not published to PyPI, and excluded from the main Cargo workspace (it's a
+`cdylib` extension module built via `maturin`, not `cargo`). See
+[`py-doh-core/doh.md`](py-doh-core/doh.md) for building it locally and the
+full API.
+
 ## Security posture
 
 - **No fallback to classic plaintext UDP/TCP DNS**, at any layer. On
@@ -206,3 +230,6 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
+
+`py-doh-core` (the Python bindings) is excluded from the workspace above
+and built separately — see [`py-doh-core/doh.md`](py-doh-core/doh.md).
