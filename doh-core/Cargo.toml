@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "A DNS client library for DNS-over-HTTPS (DoH), DNS-over-TLS (DoT), and DNS-over-QUIC (DoQ), with no fallback to classic plaintext DNS"
+keywords = ["dns", "doh", "dot", "doq", "async"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
 tokio = { workspace = true }
