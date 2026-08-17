@@ -173,6 +173,11 @@ for answer in response.answers {
 code other than `NoError`/`NXDomain` (e.g. `ServFail`, `Refused`) — a DNS
 server error is never silently reported as "no records."
 
+Each transport emits `debug`/`trace`-level records via the [`log`
+crate](https://docs.rs/log) (query start, connection reuse on `DoqTransport`,
+response codes, timeouts, errors) — install any `log`-compatible logger
+(e.g. `env_logger`) in your own binary to see them.
+
 ### Python bindings
 
 [`py-doh-core`](py-doh-core) provides PyO3 bindings for `doh-core`:
@@ -194,10 +199,19 @@ for answer in response.answers:
     print(answer.name, answer.ttl, answer.rdata)
 ```
 
+Verbose/debug output uses Python's standard `logging` module — no
+separate API to learn:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
 Not published to PyPI, and excluded from the main Cargo workspace (it's a
 `cdylib` extension module built via `maturin`, not `cargo`). See
-[`py-doh-core/doh.md`](py-doh-core/doh.md) for building it locally and the
-full API.
+[`py-doh-core/doh.md`](py-doh-core/doh.md) for building it locally, the
+full API, and more on logging (scoping verbosity, what logs at which
+level).
 
 ## Security posture
 
