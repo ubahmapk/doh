@@ -2,6 +2,13 @@ use doh_core::OpCode;
 use pyo3::prelude::*;
 
 /// One resource record from an answer, authority, or additional section.
+///
+/// Fields:
+///     name (str): Owner name of the record, e.g. "example.com.".
+///     record_type (str): Record type mnemonic, e.g. "A", "AAAA", "MX".
+///     ttl (int): Time-to-live, in seconds.
+///     rdata (str): The record data, stringified (e.g. an IP address for
+///         "A"/"AAAA", a hostname for "CNAME"/"NS").
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyAnswer {
@@ -36,11 +43,34 @@ impl From<&doh_core::Answer> for PyAnswer {
     }
 }
 
-/// A successfully-received and parsed DNS response, mirroring every field
-/// of `doh_core::ParsedResponse`. `response_code` is `"NOERROR"` or
-/// `"NXDOMAIN"` on any response returned here -- every other response code
-/// (`SERVFAIL`, `REFUSED`, ...) is raised as a `DohError` instead, matching
-/// the Rust library's own behavior.
+/// A successfully-received and parsed DNS response. Only "no error" and
+/// "name does not exist" responses are ever returned here -- any other
+/// response code (SERVFAIL, REFUSED, ...) is raised as a DohError instead,
+/// matching the Rust library's own behavior. There is no fallback to
+/// classic plaintext DNS.
+///
+/// Fields:
+///     id (int): The 16-bit DNS message ID.
+///     op_code (str): One of "QUERY", "STATUS", "NOTIFY", "UPDATE",
+///         "UNKNOWN".
+///     response_code (str): "No Error" or "Non-Existent Domain" -- these
+///         are the human-readable names, not the wire mnemonics
+///         (NOERROR/NXDOMAIN).
+///     authoritative (bool): The "AA" header flag.
+///     truncated (bool): The "TC" header flag.
+///     recursion_desired (bool): The "RD" header flag.
+///     recursion_available (bool): The "RA" header flag.
+///     authentic_data (bool): The "AD" header flag (DNSSEC).
+///     checking_disabled (bool): The "CD" header flag (DNSSEC).
+///     question_name (str): The name that was queried, e.g.
+///         "example.com.".
+///     question_type (str): The record type that was queried, e.g. "A".
+///     answers (list[PyAnswer]): Records answering the question.
+///     authorities (list[PyAnswer]): Records naming authoritative servers.
+///     additionals (list[PyAnswer]): Records offered as extra context
+///         (e.g. glue records).
+///     wire_size (int): Size of the raw response, in bytes, as received
+///         on the wire.
 #[pyclass]
 pub struct PyParsedResponse {
     #[pyo3(get)]
