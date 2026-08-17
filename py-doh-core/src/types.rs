@@ -8,6 +8,7 @@ use pyo3::prelude::*;
     hash,
     frozen,
     skip_from_py_object,
+    name = "OpCode",
     rename_all = "SCREAMING_SNAKE_CASE"
 )]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -50,7 +51,7 @@ impl From<OpCode> for PyOpCode {
 /// `NOERROR` or `NXDOMAIN` here -- every other code (`SERVFAIL`,
 /// `REFUSED`, ...) is raised as a `DohError` instead, matching doh-core's
 /// own behavior.
-#[pyclass(eq, eq_int, hash, frozen, skip_from_py_object)]
+#[pyclass(eq, eq_int, hash, frozen, skip_from_py_object, name = "ResponseCode")]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PyResponseCode {
     #[pyo3(name = "NOERROR")]
@@ -77,7 +78,7 @@ impl std::fmt::Display for PyResponseCode {
 ///     ttl (int): Time-to-live, in seconds.
 ///     rdata (str): The record data, stringified (e.g. an IP address for
 ///         "A"/"AAAA", a hostname for "CNAME"/"NS").
-#[pyclass(skip_from_py_object)]
+#[pyclass(skip_from_py_object, name = "Answer")]
 #[derive(Clone)]
 pub struct PyAnswer {
     #[pyo3(get)]
@@ -136,7 +137,7 @@ impl From<&doh_core::Answer> for PyAnswer {
 ///         (e.g. glue records).
 ///     wire_size (int): Size of the raw response, in bytes, as received
 ///         on the wire.
-#[pyclass]
+#[pyclass(name = "ParsedResponse")]
 pub struct PyParsedResponse {
     #[pyo3(get)]
     id: u16,

@@ -4,13 +4,13 @@ Python bindings for [`doh-core`](../doh-core), via
 [PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs). Not published to
 PyPI.
 
-`PyDohTransport` (DoH, GET or POST), `PyDotTransport` (DoT), and
-`PyDoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
+`DohTransport` (DoH, GET or POST), `DotTransport` (DoT), and
+`DoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
 an `async def`-compatible `aresolve()`. Responses come back as typed
-`PyParsedResponse`/`PyAnswer` objects (see `py_doh_core.pyi` for the full
+`ParsedResponse`/`Answer` objects (see `py_doh_core.pyi` for the full
 shape) mirroring every field of `doh_core::ParsedResponse`, not plain
-dicts. `op_code`/`response_code` are `PyOpCode`/`PyResponseCode` enums
-(e.g. `response.response_code == py_doh_core.PyResponseCode.NXDOMAIN`),
+dicts. `op_code`/`response_code` are `OpCode`/`ResponseCode` enums
+(e.g. `response.response_code == doh.ResponseCode.NXDOMAIN`),
 not magic strings.
 
 This crate is intentionally **excluded** from the main Cargo workspace
@@ -30,15 +30,15 @@ maturin develop
 
 ```python
 import asyncio
-import py_doh_core
+import py_doh_core as doh
 
-transport = py_doh_core.PyDohTransport("https://dns.google/dns-query")
+transport = doh.DohTransport("https://dns.google/dns-query")
 response = transport.resolve("example.com", "A")
-assert response.response_code == py_doh_core.PyResponseCode.NOERROR
+assert response.response_code == doh.ResponseCode.NOERROR
 print(response.response_code, response.answers[0].rdata)
 
 async def main():
-    dot = py_doh_core.PyDotTransport("dns.google")
+    dot = doh.DotTransport("dns.google")
     return await dot.aresolve("example.com", "AAAA")
 
 

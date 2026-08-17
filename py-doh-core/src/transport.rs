@@ -38,7 +38,7 @@ fn parse_method(method: Option<String>) -> PyResult<HttpMethod> {
 }
 
 /// A DNS-over-HTTPS transport (RFC 8484) bound to a single server URL.
-#[pyclass]
+#[pyclass(name = "DohTransport")]
 pub struct PyDohTransport {
     inner: Arc<DohTransport>,
 }
@@ -84,7 +84,7 @@ impl PyDohTransport {
 }
 
 /// A DNS-over-TLS transport (RFC 7858) bound to a single `host[:port]`.
-#[pyclass]
+#[pyclass(name = "DotTransport")]
 pub struct PyDotTransport {
     inner: Arc<DotTransport>,
 }
@@ -126,7 +126,7 @@ impl PyDotTransport {
 /// The underlying connection is pooled and shared across every `resolve`/
 /// `aresolve` call on this instance (and across the blocking/async paths
 /// alike, via the shared `Arc`).
-#[pyclass]
+#[pyclass(name = "DoqTransport")]
 pub struct PyDoqTransport {
     inner: Arc<DoqTransport>,
 }

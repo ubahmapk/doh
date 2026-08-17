@@ -1,15 +1,15 @@
 from typing import ClassVar, Optional
 
-class PyOpCode:
+class OpCode:
     """The DNS message opcode. Compares equal to its int value too
-    (e.g. PyOpCode.QUERY == 0).
+    (e.g. OpCode.QUERY == 0).
     """
 
-    QUERY: ClassVar[PyOpCode]
-    STATUS: ClassVar[PyOpCode]
-    NOTIFY: ClassVar[PyOpCode]
-    UPDATE: ClassVar[PyOpCode]
-    UNKNOWN: ClassVar[PyOpCode]
+    QUERY: ClassVar[OpCode]
+    STATUS: ClassVar[OpCode]
+    NOTIFY: ClassVar[OpCode]
+    UPDATE: ClassVar[OpCode]
+    UNKNOWN: ClassVar[OpCode]
     """Any opcode not covered above -- the server's own response is
     simply echoed back and not otherwise validated."""
 
@@ -17,15 +17,15 @@ class PyOpCode:
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
 
-class PyResponseCode:
+class ResponseCode:
     """The DNS response code. Transport.resolve()/.aresolve() only ever
     return NOERROR or NXDOMAIN here -- every other code (SERVFAIL,
     REFUSED, ...) is raised as a DohError instead, matching doh-core's
     own behavior. Compares equal to its int value too.
     """
 
-    NOERROR: ClassVar[PyResponseCode]
-    NXDOMAIN: ClassVar[PyResponseCode]
+    NOERROR: ClassVar[ResponseCode]
+    NXDOMAIN: ClassVar[ResponseCode]
 
     def __int__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
@@ -39,7 +39,7 @@ class DohError(Exception):
     behavior.
     """
 
-class PyAnswer:
+class Answer:
     """One resource record from an answer, authority, or additional
     section.
     """
@@ -57,7 +57,7 @@ class PyAnswer:
     """The record data, stringified (e.g. an IP address for "A"/"AAAA",
     a hostname for "CNAME"/"NS")."""
 
-class PyParsedResponse:
+class ParsedResponse:
     """A successfully-received and parsed DNS response. Only "no error"
     and "name does not exist" responses are ever returned here -- any
     other response code (SERVFAIL, REFUSED, ...) is raised as a
@@ -68,10 +68,10 @@ class PyParsedResponse:
     id: int
     """The 16-bit DNS message ID."""
 
-    op_code: PyOpCode
+    op_code: OpCode
     """One of QUERY, STATUS, NOTIFY, UPDATE, UNKNOWN."""
 
-    response_code: PyResponseCode
+    response_code: ResponseCode
     """NOERROR or NXDOMAIN."""
 
     authoritative: bool
@@ -98,19 +98,19 @@ class PyParsedResponse:
     question_type: str
     """The record type that was queried, e.g. "A"."""
 
-    answers: list[PyAnswer]
+    answers: list[Answer]
     """Records answering the question."""
 
-    authorities: list[PyAnswer]
+    authorities: list[Answer]
     """Records naming authoritative servers."""
 
-    additionals: list[PyAnswer]
+    additionals: list[Answer]
     """Records offered as extra context (e.g. glue records)."""
 
     wire_size: int
     """Size of the raw response, in bytes, as received on the wire."""
 
-class PyDohTransport:
+class DohTransport:
     """A DNS-over-HTTPS transport (RFC 8484) bound to a single server URL."""
 
     def __init__(self, server_url: str, method: Optional[str] = None) -> None:
@@ -118,39 +118,39 @@ class PyDohTransport:
         method: "get" (default) or "post", case-insensitive.
         """
 
-    def resolve(self, name: str, record_type: str) -> PyParsedResponse:
+    def resolve(self, name: str, record_type: str) -> ParsedResponse:
         """Blocking. Releases the GIL for the duration of the network
         call, so other Python threads keep running.
         """
 
-    async def aresolve(self, name: str, record_type: str) -> PyParsedResponse:
+    async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
 
-class PyDotTransport:
+class DotTransport:
     """A DNS-over-TLS transport (RFC 7858) bound to a single host[:port]
     (default port 853).
     """
 
     def __init__(self, server_addr: str) -> None: ...
-    def resolve(self, name: str, record_type: str) -> PyParsedResponse:
+    def resolve(self, name: str, record_type: str) -> ParsedResponse:
         """Blocking. Releases the GIL for the duration of the network
         call, so other Python threads keep running.
         """
 
-    async def aresolve(self, name: str, record_type: str) -> PyParsedResponse:
+    async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
 
-class PyDoqTransport:
+class DoqTransport:
     """A DNS-over-QUIC transport (RFC 9250) bound to a single host[:port]
     (default port 853). The underlying connection is pooled and shared
     across every resolve()/aresolve() call on this instance.
     """
 
     def __init__(self, server_addr: str) -> None: ...
-    def resolve(self, name: str, record_type: str) -> PyParsedResponse:
+    def resolve(self, name: str, record_type: str) -> ParsedResponse:
         """Blocking. Releases the GIL for the duration of the network
         call, so other Python threads keep running.
         """
 
-    async def aresolve(self, name: str, record_type: str) -> PyParsedResponse:
+    async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
