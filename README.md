@@ -177,7 +177,9 @@ server error is never silently reported as "no records."
 
 [`py-doh-core`](py-doh-core) provides PyO3 bindings for `doh-core`:
 `DohTransport`/`DotTransport`/`DoqTransport`, each with a blocking
-`resolve()` and an `async def`-compatible `aresolve()`, returning typed
+`resolve()` and an `async def`-compatible `aresolve()` (plus
+`resolve_many()`/`aresolve_many()` for multiple record types in one call,
+mirroring the CLI's variadic `[record_types...]`), returning typed
 `ParsedResponse`/`Answer` objects (`OpCode`/`ResponseCode` are real enums,
 not magic strings) instead of plain dicts.
 

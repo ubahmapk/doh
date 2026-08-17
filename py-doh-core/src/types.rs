@@ -137,7 +137,8 @@ impl From<&doh_core::Answer> for PyAnswer {
 ///         (e.g. glue records).
 ///     wire_size (int): Size of the raw response, in bytes, as received
 ///         on the wire.
-#[pyclass(name = "ParsedResponse")]
+#[pyclass(name = "ParsedResponse", skip_from_py_object)]
+#[derive(Clone)]
 pub struct PyParsedResponse {
     #[pyo3(get)]
     id: u16,
@@ -218,6 +219,69 @@ impl From<doh_core::ParsedResponse> for PyParsedResponse {
             authorities: response.authorities.iter().map(PyAnswer::from).collect(),
             additionals: response.additionals.iter().map(PyAnswer::from).collect(),
             wire_size: response.wire_size,
+        }
+    }
+}
+
+/// The outcome of one record type from a `resolve_many`/`aresolve_many`
+/// call. Exactly one of `response`/`error` is set: a query for one record
+/// type can fail (e.g. `SERVFAIL`) without aborting the others, matching
+/// `doh-cli`'s own "query the rest, report each result" behavior -- only
+/// an unparseable record type string aborts the whole batch, before any
+/// query is sent.
+///
+/// Fields:
+///     record_type (str): The record type this result is for, e.g. "A".
+///     response (ParsedResponse | None): Set on success.
+///     error (str | None): Set on failure -- the same message a raised
+///         DohError would carry.
+#[pyclass(name = "QueryResult", skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyQueryResult {
+    #[pyo3(get)]
+    record_type: String,
+    #[pyo3(get)]
+    response: Option<PyParsedResponse>,
+    #[pyo3(get)]
+    error: Option<String>,
+}
+
+impl PyQueryResult {
+    pub fn success(record_type: String, response: PyParsedResponse) -> Self {
+        Self {
+            record_type,
+            response: Some(response),
+            error: None,
+        }
+    }
+
+    pub fn failure(record_type: String, error: String) -> Self {
+        Self {
+            record_type,
+            response: None,
+            error: Some(error),
+        }
+    }
+}
+
+#[pymethods]
+impl PyQueryResult {
+    fn __repr__(&self) -> String {
+        match (&self.response, &self.error) {
+            (Some(response), _) => {
+                format!(
+                    "QueryResult(record_type={:?}, response={})",
+                    self.record_type,
+                    response.__repr__()
+                )
+            }
+            (None, Some(error)) => {
+                format!(
+                    "QueryResult(record_type={:?}, error={error:?})",
+                    self.record_type
+                )
+            }
+            (None, None) => unreachable!("PyQueryResult always sets response xor error"),
         }
     }
 }

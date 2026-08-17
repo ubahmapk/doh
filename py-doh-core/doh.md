@@ -6,12 +6,15 @@ PyPI.
 
 `DohTransport` (DoH, GET or POST), `DotTransport` (DoT), and
 `DoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
-an `async def`-compatible `aresolve()`. Responses come back as typed
-`ParsedResponse`/`Answer` objects (see `py_doh_core.pyi` for the full
-shape) mirroring every field of `doh_core::ParsedResponse`, not plain
-dicts. `op_code`/`response_code` are `OpCode`/`ResponseCode` enums
-(e.g. `response.response_code == doh.ResponseCode.NXDOMAIN`),
-not magic strings.
+an `async def`-compatible `aresolve()`, plus `resolve_many()`/
+`aresolve_many()` for querying several record types against one name in
+a single call (mirroring `doh-cli`'s variadic `[record_types...]`
+argument -- see [Multiple record types](#multiple-record-types) below).
+Responses come back as typed `ParsedResponse`/`Answer` objects (see
+`py_doh_core.pyi` for the full shape) mirroring every field of
+`doh_core::ParsedResponse`, not plain dicts. `op_code`/`response_code`
+are `OpCode`/`ResponseCode` enums (e.g. `response.response_code ==
+doh.ResponseCode.NXDOMAIN`), not magic strings.
 
 This crate is intentionally **excluded** from the main Cargo workspace
 (see the root `Cargo.toml`): it's a PyO3 `cdylib` extension module, which
@@ -51,6 +54,29 @@ print(asyncio.run(main()))
 Errors (bad server URL, DNS failures, `SERVFAIL`/`REFUSED`, etc.) raise
 `doh.DohError` with the same message `doh-core` itself produces — no
 fallback to classic plaintext DNS, same as the Rust library.
+
+## Multiple record types
+
+`resolve_many()`/`aresolve_many()` query several record types for one
+name against a single transport instance, matching `doh-cli`'s own
+multi-type behavior: queries run in turn (reusing the connection --
+this matters most for `DoqTransport`'s pooled connection), and one
+type's failure doesn't abort the rest. Each entry in the returned list
+is a `QueryResult` with `record_type`, and exactly one of
+`response`/`error` set:
+
+```python
+transport = doh.DohTransport("https://dns.google/dns-query")
+for result in transport.resolve_many("example.com", ["A", "AAAA", "MX"]):
+    if result.error is not None:
+        print(result.record_type, "failed:", result.error)
+    else:
+        print(result.record_type, [a.rdata for a in result.response.answers])
+```
+
+An unparseable record type string (unlike a per-query network/DNS
+failure) raises `DohError` immediately, before any query is sent —
+also matching `doh-cli`'s CLI-arg validation.
 
 ## Tests
 

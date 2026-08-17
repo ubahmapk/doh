@@ -110,6 +110,24 @@ class ParsedResponse:
     wire_size: int
     """Size of the raw response, in bytes, as received on the wire."""
 
+class QueryResult:
+    """The outcome of one record type from a resolve_many()/
+    aresolve_many() call. Exactly one of response/error is set: a query
+    for one record type can fail (e.g. SERVFAIL) without aborting the
+    others, matching doh-cli's own "query the rest, report each result"
+    behavior -- only an unparseable record type string aborts the whole
+    batch, before any query is sent.
+    """
+
+    record_type: str
+    """The record type this result is for, e.g. "A"."""
+
+    response: Optional[ParsedResponse]
+    """Set on success."""
+
+    error: Optional[str]
+    """Set on failure -- the same message a raised DohError would carry."""
+
 class DohTransport:
     """A DNS-over-HTTPS transport (RFC 8484) bound to a single server URL."""
 
@@ -126,6 +144,15 @@ class DohTransport:
     async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
 
+    def resolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Resolve name against every type in record_types, blocking.
+        Queries run in turn against this same transport; one type's
+        failure doesn't abort the rest -- see QueryResult.
+        """
+
+    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Same as resolve_many(), as an awaitable."""
+
 class DotTransport:
     """A DNS-over-TLS transport (RFC 7858) bound to a single host[:port]
     (default port 853).
@@ -139,6 +166,15 @@ class DotTransport:
 
     async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
+
+    def resolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Resolve name against every type in record_types, blocking.
+        Queries run in turn against this same transport; one type's
+        failure doesn't abort the rest -- see QueryResult.
+        """
+
+    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Same as resolve_many(), as an awaitable."""
 
 class DoqTransport:
     """A DNS-over-QUIC transport (RFC 9250) bound to a single host[:port]
@@ -154,3 +190,12 @@ class DoqTransport:
 
     async def aresolve(self, name: str, record_type: str) -> ParsedResponse:
         """Same as resolve(), as an awaitable."""
+
+    def resolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Resolve name against every type in record_types, blocking.
+        Queries run in turn against this same transport; one type's
+        failure doesn't abort the rest -- see QueryResult.
+        """
+
+    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+        """Same as resolve_many(), as an awaitable."""

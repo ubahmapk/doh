@@ -88,3 +88,41 @@ def test_answers_authorities_additionals_are_populated_separately() -> None:
 
     assert isinstance(response.authorities, list)
     assert isinstance(response.additionals, list)
+
+
+def test_resolve_many_returns_one_result_per_type_in_order() -> None:
+    results = DOH_GET.resolve_many("example.com", ["A", "AAAA", "MX"])
+
+    assert [r.record_type for r in results] == ["A", "AAAA", "MX"]
+    for r in results:
+        assert r.error is None
+        assert r.response is not None
+        assert r.response.response_code == doh.ResponseCode.NOERROR
+        assert r.response.answers
+
+
+async def test_aresolve_many_returns_one_result_per_type_in_order() -> None:
+    results = await DOH_GET.aresolve_many("example.com", ["A", "MX"])
+
+    assert [r.record_type for r in results] == ["A", "MX"]
+    for r in results:
+        assert r.error is None
+        assert r.response is not None
+
+
+def test_resolve_many_one_failing_type_does_not_abort_the_rest() -> None:
+    # SERVFAIL for every type on this domain -- proves a per-type failure
+    # is captured on that entry, not raised, and the rest of the batch
+    # still runs (matching doh-cli's "query the rest, report each
+    # result" behavior).
+    results = DOH_GET.resolve_many("dnssec-failed.org", ["A", "AAAA"])
+
+    assert [r.record_type for r in results] == ["A", "AAAA"]
+    for r in results:
+        assert r.response is None
+        assert r.error is not None
+
+
+def test_resolve_many_unknown_type_raises_before_any_query() -> None:
+    with pytest.raises(doh.DohError):
+        DOH_GET.resolve_many("example.com", ["A", "NOT_A_RECORD_TYPE"])
