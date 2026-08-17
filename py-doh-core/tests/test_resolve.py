@@ -5,7 +5,7 @@ Requires network access.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import TypeAlias
 
 import pytest
 
@@ -17,7 +17,7 @@ import py_doh_core
 NOERROR = "No Error"
 NXDOMAIN = "Non-Existent Domain"
 
-Transport = Union[py_doh_core.PyDohTransport, py_doh_core.PyDotTransport, py_doh_core.PyDoqTransport]
+Transport: TypeAlias = py_doh_core.PyDohTransport | py_doh_core.PyDotTransport | py_doh_core.PyDoqTransport
 
 DOH_GET: py_doh_core.PyDohTransport = py_doh_core.PyDohTransport("https://dns.google/dns-query")
 DOH_POST: py_doh_core.PyDohTransport = py_doh_core.PyDohTransport(
