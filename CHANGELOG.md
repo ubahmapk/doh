@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-17
+
+### Fixed
+
+- `doh-core` and `doh-cli`'s crates.io pages rendered no README, since
+  neither `Cargo.toml` set a `readme` field and the single project
+  README lives at the workspace root (outside either crate's own
+  directory, so `cargo package` didn't include it). Added focused
+  `README.md` files inside each crate directory — `doh-core`'s covers
+  library usage, `doh-cli`'s covers CLI usage/configuration — and set
+  `readme = "README.md"` in both. Packaging-only fix, no functional
+  change; the root `README.md` remains the canonical full project doc.
+
 ## [0.3.0] - 2026-08-16
 
 ### Added
@@ -141,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858
 [RFC 9250]: https://www.rfc-editor.org/rfc/rfc9250
 
-[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ubahmapk/doh/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ubahmapk/doh/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ubahmapk/doh/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ubahmapk/doh/releases/tag/v0.1.0

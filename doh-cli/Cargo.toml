@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "A command-line DNS client for DoH, DoT, and DoQ, with q-like output formatting (pretty, column, json, yaml, raw) and no fallback to classic plaintext DNS"
+readme = "README.md"
 keywords = ["dns", "doh", "cli", "dot", "doq"]
 categories = ["command-line-utilities", "network-programming"]
 
@@ -14,7 +15,7 @@ name = "doh"
 path = "src/main.rs"
 
 [dependencies]
-doh-core = { path = "../doh-core", version = "0.3.0" }
+doh-core = { path = "../doh-core", version = "0.3.1" }
 tokio = { workspace = true }
 clap = { workspace = true }
 thiserror = { workspace = true }
