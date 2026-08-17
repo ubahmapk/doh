@@ -11,12 +11,6 @@ import pytest
 
 import py_doh_core
 
-# ResponseCode/OpCode are exposed via hickory-proto's Display impl, the same
-# stringification doh-cli itself uses for its own text/JSON output
-# (doh-cli/src/output.rs) -- not normalized to the wire mnemonics.
-NOERROR = "No Error"
-NXDOMAIN = "Non-Existent Domain"
-
 Transport: TypeAlias = py_doh_core.PyDohTransport | py_doh_core.PyDotTransport | py_doh_core.PyDoqTransport
 
 DOH_GET: py_doh_core.PyDohTransport = py_doh_core.PyDohTransport("https://dns.google/dns-query")
@@ -45,7 +39,8 @@ def test_resolve_a_record(transport: Transport) -> None:
         _skip_if_port_853_unreachable(transport, exc)
         raise
 
-    assert response.response_code == NOERROR
+    assert response.op_code == py_doh_core.PyOpCode.QUERY
+    assert response.response_code == py_doh_core.PyResponseCode.NOERROR
     assert response.answers
     assert all(isinstance(a.rdata, str) and a.rdata for a in response.answers)
     assert response.question_name.rstrip(".") == "example.com"
@@ -61,14 +56,14 @@ async def test_aresolve_a_record(transport: Transport) -> None:
         _skip_if_port_853_unreachable(transport, exc)
         raise
 
-    assert response.response_code == NOERROR
+    assert response.response_code == py_doh_core.PyResponseCode.NOERROR
     assert response.answers
 
 
 def test_resolve_nxdomain_is_not_an_error() -> None:
     response = DOH_GET.resolve("this-name-should-not-exist-doh-rs.example", "A")
 
-    assert response.response_code == NXDOMAIN
+    assert response.response_code == py_doh_core.PyResponseCode.NXDOMAIN
     assert response.answers == []
 
 

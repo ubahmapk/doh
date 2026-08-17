@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use error::DohError;
 use runtime::runtime;
 use transport::{PyDohTransport, PyDoqTransport, PyDotTransport};
-use types::{PyAnswer, PyParsedResponse};
+use types::{PyAnswer, PyOpCode, PyParsedResponse, PyResponseCode};
 
 #[pymodule]
 fn py_doh_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -22,6 +22,8 @@ fn py_doh_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDoqTransport>()?;
     m.add_class::<PyAnswer>()?;
     m.add_class::<PyParsedResponse>()?;
+    m.add_class::<PyOpCode>()?;
+    m.add_class::<PyResponseCode>()?;
     m.add("DohError", m.py().get_type::<DohError>())?;
     Ok(())
 }

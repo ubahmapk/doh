@@ -1,4 +1,35 @@
-from typing import Optional
+from typing import ClassVar, Optional
+
+class PyOpCode:
+    """The DNS message opcode. Compares equal to its int value too
+    (e.g. PyOpCode.QUERY == 0).
+    """
+
+    QUERY: ClassVar[PyOpCode]
+    STATUS: ClassVar[PyOpCode]
+    NOTIFY: ClassVar[PyOpCode]
+    UPDATE: ClassVar[PyOpCode]
+    UNKNOWN: ClassVar[PyOpCode]
+    """Any opcode not covered above -- the server's own response is
+    simply echoed back and not otherwise validated."""
+
+    def __int__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+
+class PyResponseCode:
+    """The DNS response code. Transport.resolve()/.aresolve() only ever
+    return NOERROR or NXDOMAIN here -- every other code (SERVFAIL,
+    REFUSED, ...) is raised as a DohError instead, matching doh-core's
+    own behavior. Compares equal to its int value too.
+    """
+
+    NOERROR: ClassVar[PyResponseCode]
+    NXDOMAIN: ClassVar[PyResponseCode]
+
+    def __int__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
 
 class DohError(Exception):
     """Raised for any doh-core transport/DNS failure. str(exc) is the same
@@ -37,12 +68,11 @@ class PyParsedResponse:
     id: int
     """The 16-bit DNS message ID."""
 
-    op_code: str
-    """One of "QUERY", "STATUS", "NOTIFY", "UPDATE", "UNKNOWN"."""
+    op_code: PyOpCode
+    """One of QUERY, STATUS, NOTIFY, UPDATE, UNKNOWN."""
 
-    response_code: str
-    """"No Error" or "Non-Existent Domain" -- these are the
-    human-readable names, not the wire mnemonics (NOERROR/NXDOMAIN)."""
+    response_code: PyResponseCode
+    """NOERROR or NXDOMAIN."""
 
     authoritative: bool
     """The "AA" header flag."""

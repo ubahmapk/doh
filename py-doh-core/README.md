@@ -9,7 +9,9 @@ PyPI.
 an `async def`-compatible `aresolve()`. Responses come back as typed
 `PyParsedResponse`/`PyAnswer` objects (see `py_doh_core.pyi` for the full
 shape) mirroring every field of `doh_core::ParsedResponse`, not plain
-dicts.
+dicts. `op_code`/`response_code` are `PyOpCode`/`PyResponseCode` enums
+(e.g. `response.response_code == py_doh_core.PyResponseCode.NXDOMAIN`),
+not magic strings.
 
 This crate is intentionally **excluded** from the main Cargo workspace
 (see the root `Cargo.toml`): it's a PyO3 `cdylib` extension module, which
@@ -32,11 +34,15 @@ import py_doh_core
 
 transport = py_doh_core.PyDohTransport("https://dns.google/dns-query")
 response = transport.resolve("example.com", "A")
+assert response.response_code == py_doh_core.PyResponseCode.NOERROR
 print(response.response_code, response.answers[0].rdata)
 
-dot = py_doh_core.PyDotTransport("dns.google")
-response = asyncio.run(dot.aresolve("example.com", "AAAA"))
-print(response)
+async def main():
+    dot = py_doh_core.PyDotTransport("dns.google")
+    return await dot.aresolve("example.com", "AAAA")
+
+
+print(asyncio.run(main()))
 ```
 
 Errors (bad server URL, DNS failures, `SERVFAIL`/`REFUSED`, etc.) raise

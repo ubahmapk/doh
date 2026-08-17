@@ -1,5 +1,73 @@
-use doh_core::OpCode;
+use doh_core::{OpCode, ResponseCode};
 use pyo3::prelude::*;
+
+/// The DNS message opcode.
+#[pyclass(
+    eq,
+    eq_int,
+    hash,
+    frozen,
+    skip_from_py_object,
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum PyOpCode {
+    Query,
+    Status,
+    Notify,
+    Update,
+    /// Any opcode not covered above -- the server's own response is
+    /// simply echoed back and not otherwise validated.
+    Unknown,
+}
+
+impl std::fmt::Display for PyOpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            PyOpCode::Query => "QUERY",
+            PyOpCode::Status => "STATUS",
+            PyOpCode::Notify => "NOTIFY",
+            PyOpCode::Update => "UPDATE",
+            PyOpCode::Unknown => "UNKNOWN",
+        };
+        f.write_str(s)
+    }
+}
+
+impl From<OpCode> for PyOpCode {
+    fn from(op: OpCode) -> Self {
+        match op {
+            OpCode::Query => PyOpCode::Query,
+            OpCode::Status => PyOpCode::Status,
+            OpCode::Notify => PyOpCode::Notify,
+            OpCode::Update => PyOpCode::Update,
+            _ => PyOpCode::Unknown,
+        }
+    }
+}
+
+/// The DNS response code. `Transport::resolve()` only ever returns
+/// `NOERROR` or `NXDOMAIN` here -- every other code (`SERVFAIL`,
+/// `REFUSED`, ...) is raised as a `DohError` instead, matching doh-core's
+/// own behavior.
+#[pyclass(eq, eq_int, hash, frozen, skip_from_py_object)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum PyResponseCode {
+    #[pyo3(name = "NOERROR")]
+    NoError,
+    #[pyo3(name = "NXDOMAIN")]
+    NxDomain,
+}
+
+impl std::fmt::Display for PyResponseCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            PyResponseCode::NoError => "NOERROR",
+            PyResponseCode::NxDomain => "NXDOMAIN",
+        };
+        f.write_str(s)
+    }
+}
 
 /// One resource record from an answer, authority, or additional section.
 ///
@@ -51,11 +119,8 @@ impl From<&doh_core::Answer> for PyAnswer {
 ///
 /// Fields:
 ///     id (int): The 16-bit DNS message ID.
-///     op_code (str): One of "QUERY", "STATUS", "NOTIFY", "UPDATE",
-///         "UNKNOWN".
-///     response_code (str): "No Error" or "Non-Existent Domain" -- these
-///         are the human-readable names, not the wire mnemonics
-///         (NOERROR/NXDOMAIN).
+///     op_code (PyOpCode): One of QUERY, STATUS, NOTIFY, UPDATE, UNKNOWN.
+///     response_code (PyResponseCode): NOERROR or NXDOMAIN.
 ///     authoritative (bool): The "AA" header flag.
 ///     truncated (bool): The "TC" header flag.
 ///     recursion_desired (bool): The "RD" header flag.
@@ -76,9 +141,9 @@ pub struct PyParsedResponse {
     #[pyo3(get)]
     id: u16,
     #[pyo3(get)]
-    op_code: String,
+    op_code: PyOpCode,
     #[pyo3(get)]
-    response_code: String,
+    response_code: PyResponseCode,
     #[pyo3(get)]
     authoritative: bool,
     #[pyo3(get)]
@@ -109,7 +174,7 @@ pub struct PyParsedResponse {
 impl PyParsedResponse {
     fn __repr__(&self) -> String {
         format!(
-            "ParsedResponse(id={}, op_code={:?}, response_code={:?}, question_name={:?}, \
+            "ParsedResponse(id={}, op_code={}, response_code={}, question_name={:?}, \
              question_type={:?}, answers={}, authorities={}, additionals={}, wire_size={})",
             self.id,
             self.op_code,
@@ -124,25 +189,22 @@ impl PyParsedResponse {
     }
 }
 
-/// Same stringification `doh-cli` already uses for its own JSON/text output
-/// (`doh-cli/src/output.rs`'s `opcode_str`): `OpCode` has no useful
-/// `Display`, so the known variants are named explicitly.
-fn opcode_str(op: OpCode) -> &'static str {
-    match op {
-        OpCode::Query => "QUERY",
-        OpCode::Status => "STATUS",
-        OpCode::Notify => "NOTIFY",
-        OpCode::Update => "UPDATE",
-        _ => "UNKNOWN",
-    }
-}
-
 impl From<doh_core::ParsedResponse> for PyParsedResponse {
     fn from(response: doh_core::ParsedResponse) -> Self {
         Self {
             id: response.id,
-            op_code: opcode_str(response.op_code).to_string(),
-            response_code: response.response_code.to_string(),
+            op_code: PyOpCode::from(response.op_code),
+            response_code: match response.response_code {
+                ResponseCode::NoError => PyResponseCode::NoError,
+                ResponseCode::NXDomain => PyResponseCode::NxDomain,
+                // Every transport only ever returns `Ok` for NoError/
+                // NXDomain (see e.g. doh-core/src/transport/doh.rs);
+                // anything else is raised as a DohError before a
+                // ParsedResponse is ever constructed.
+                other => unreachable!(
+                    "Transport::resolve() only returns NoError/NXDomain, got {other:?}"
+                ),
+            },
             authoritative: response.authoritative,
             truncated: response.truncated,
             recursion_desired: response.recursion_desired,
