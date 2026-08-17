@@ -14,7 +14,9 @@ import py_doh_core as doh
 Transport: TypeAlias = doh.DohTransport | doh.DotTransport | doh.DoqTransport
 
 DOH_GET: doh.DohTransport = doh.DohTransport("https://dns.google/dns-query")
-DOH_POST: doh.DohTransport = doh.DohTransport("https://cloudflare-dns.com/dns-query", "post")
+DOH_POST: doh.DohTransport = doh.DohTransport(
+    "https://cloudflare-dns.com/dns-query", "post"
+)
 DOT: doh.DotTransport = doh.DotTransport("dns.google")
 DOQ: doh.DoqTransport = doh.DoqTransport("dns.adguard.com")
 
