@@ -12,6 +12,24 @@ use types::{PyAnswer, PyOpCode, PyParsedResponse, PyQueryResult, PyResponseCode}
 
 #[pymodule]
 fn py_doh_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Bridge Rust `log` records to Python's stdlib `logging` module, so
+    // verbose/debug output is controlled the normal Python way, e.g.
+    // `logging.basicConfig(level=logging.DEBUG)`. Logger names follow the
+    // Rust module path (e.g. "doh_core.transport.doh", "py_doh_core.transport").
+    //
+    // Only our own targets are bridged -- dependency crates (reqwest, h2,
+    // rustls, quinn) log from long-lived tokio worker threads that outlive
+    // a single `resolve()` call and can still be running as the Python
+    // interpreter finalizes at process exit. Attaching to Python from one
+    // of those threads at that point segfaults (PyGILState_Ensure into a
+    // finalizing interpreter). Scoping the filter means those crates'
+    // targets are rejected before any `Python::attach` is attempted.
+    let _ = pyo3_log::Logger::default()
+        .filter(log::LevelFilter::Off)
+        .filter_target("doh_core".to_owned(), log::LevelFilter::Trace)
+        .filter_target("py_doh_core".to_owned(), log::LevelFilter::Trace)
+        .install();
+
     // Share one tokio runtime between the blocking (`.block_on`) and async
     // (`aresolve`, via pyo3-async-runtimes) call paths.
     pyo3_async_runtimes::tokio::init_with_runtime(runtime())

@@ -89,11 +89,13 @@ impl DoqTransport {
 
         if let Some(conn) = &state.connection {
             if conn.close_reason().is_none() {
+                log::trace!("doq: reusing pooled connection to {}", self.addr_label());
                 return Ok(conn.clone());
             }
         }
 
         let addr_label = self.addr_label();
+        log::debug!("doq: connecting to {addr_label}");
         let socket_addr = self.resolve_addr().await?;
 
         if state.endpoint.is_none() {
@@ -145,24 +147,33 @@ impl Transport for DoqTransport {
         name: &str,
         record_type: RecordType,
     ) -> Result<ParsedResponse, DohError> {
+        log::debug!("doq: querying {name} {record_type} via {}", self.addr_label());
+
         let query = build_query(name, record_type)?;
         // RFC 9250 section 4.2.1: the DNS message ID MUST be 0 on the wire.
         let wire = encode_query_doq(&query)?;
 
         let response_bytes = timeout(REQUEST_TIMEOUT, self.query_over_quic(&wire))
             .await
-            .map_err(|_| DohError::Timeout {
-                addr: self.addr_label(),
+            .map_err(|_| {
+                log::debug!("doq: {} timed out", self.addr_label());
+                DohError::Timeout {
+                    addr: self.addr_label(),
+                }
             })??;
+        log::trace!("doq: received {} response bytes", response_bytes.len());
 
         let parsed = parse_response(&self.addr_label(), &response_bytes)?;
 
         match parsed.response_code {
             ResponseCode::NoError | ResponseCode::NXDomain => Ok(parsed),
-            code => Err(DohError::Dns {
-                url: self.addr_label(),
-                code,
-            }),
+            code => {
+                log::debug!("doq: {} answered with {code:?}", self.addr_label());
+                Err(DohError::Dns {
+                    url: self.addr_label(),
+                    code,
+                })
+            }
         }
     }
 }

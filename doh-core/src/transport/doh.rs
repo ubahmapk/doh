@@ -101,6 +101,15 @@ impl Transport for DohTransport {
         name: &str,
         record_type: RecordType,
     ) -> Result<ParsedResponse, DohError> {
+        log::debug!(
+            "doh: querying {name} {record_type} via {} {}",
+            match self.method {
+                HttpMethod::Get => "GET",
+                HttpMethod::Post => "POST",
+            },
+            self.server_url
+        );
+
         let query = build_query(name, record_type)?;
         let wire = encode_query(&query)?;
 
@@ -124,14 +133,18 @@ impl Transport for DohTransport {
                     .await
             }
         }
-        .map_err(|source| DohError::TransportFailed {
-            url: self.server_url.to_string(),
-            source,
+        .map_err(|source| {
+            log::debug!("doh: request to {} failed: {source}", self.server_url);
+            DohError::TransportFailed {
+                url: self.server_url.to_string(),
+                source,
+            }
         })?;
 
         let status = response.status();
         if !status.is_success() {
             let body = read_capped_text(response).await;
+            log::debug!("doh: {} returned HTTP {status}", self.server_url);
             return Err(DohError::HttpStatus {
                 url: self.server_url.to_string(),
                 status: status.as_u16(),
@@ -146,15 +159,19 @@ impl Transport for DohTransport {
                     url: self.server_url.to_string(),
                     source,
                 })?;
+        log::trace!("doh: received {} response bytes", bytes.len());
 
         let parsed = parse_response(self.server_url.as_str(), &bytes)?;
 
         match parsed.response_code {
             ResponseCode::NoError | ResponseCode::NXDomain => Ok(parsed),
-            code => Err(DohError::Dns {
-                url: self.server_url.to_string(),
-                code,
-            }),
+            code => {
+                log::debug!("doh: {} answered with {code:?}", self.server_url);
+                Err(DohError::Dns {
+                    url: self.server_url.to_string(),
+                    code,
+                })
+            }
         }
     }
 }

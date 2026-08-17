@@ -5,6 +5,8 @@ Requires network access.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from typing import TypeAlias
 
 import pytest
@@ -128,3 +130,30 @@ def test_resolve_many_one_failing_type_does_not_abort_the_rest() -> None:
 def test_resolve_many_unknown_type_raises_before_any_query() -> None:
     with pytest.raises(doh.DohError):
         DOH_GET.resolve_many("example.com", ["A", "NOT_A_RECORD_TYPE"])
+
+
+def test_resolve_emits_a_debug_log_record() -> None:
+    # A fresh subprocess, not caplog: pyo3-log caches each target's
+    # effective Python log level on first use and doesn't invalidate that
+    # cache on later level changes, so a prior resolve() call elsewhere in
+    # this suite (before any level is raised) would otherwise poison this
+    # check. A subprocess also re-confirms process exit is clean (0) with
+    # logging enabled -- pyo3-log bridging every dependency's log target,
+    # not just ours, previously crashed at interpreter shutdown.
+    script = (
+        "import logging; "
+        "logging.basicConfig(level=logging.DEBUG); "
+        "import py_doh_core as doh; "
+        "doh.DohTransport('https://dns.google/dns-query').resolve('example.com', 'A')"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "doh_core.transport.doh" in result.stderr
+    assert "example.com" in result.stderr

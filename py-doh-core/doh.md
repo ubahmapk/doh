@@ -78,6 +78,29 @@ An unparseable record type string (unlike a per-query network/DNS
 failure) raises `DohError` immediately, before any query is sent —
 also matching `doh-cli`'s CLI-arg validation.
 
+## Logging
+
+Verbose/debug output uses Python's standard `logging` module -- no
+separate init call needed:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+Logger names follow the Rust module path, e.g. `doh_core.transport.doh`,
+`doh_core.transport.doq`, `py_doh_core.transport`. `DEBUG` shows one line
+per query (server, method, connection reuse, response codes); a small
+amount of extra detail (e.g. response sizes) logs at level `5`, below
+`logging.DEBUG` (10) -- pass `level=5` to see it. Scope to just this
+library with `logging.getLogger("doh_core").setLevel(logging.DEBUG)`.
+
+Only `doh_core`/`py_doh_core` targets are bridged to Python -- dependency
+crates (`reqwest`, `h2`, `rustls`, `quinn`) are deliberately not, since
+their logging runs on long-lived background threads that can outlive a
+single `resolve()` call and, in rare cases, still be active as the
+Python interpreter shuts down.
+
 ## Tests
 
 ```sh

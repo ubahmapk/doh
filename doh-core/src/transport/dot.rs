@@ -73,23 +73,32 @@ impl Transport for DotTransport {
         name: &str,
         record_type: RecordType,
     ) -> Result<ParsedResponse, DohError> {
+        log::debug!("dot: querying {name} {record_type} via {}", self.addr_label());
+
         let query = build_query(name, record_type)?;
         let wire = encode_query(&query)?;
 
         let response_bytes = timeout(REQUEST_TIMEOUT, self.query_over_tls(&wire))
             .await
-            .map_err(|_| DohError::Timeout {
-                addr: self.addr_label(),
+            .map_err(|_| {
+                log::debug!("dot: {} timed out", self.addr_label());
+                DohError::Timeout {
+                    addr: self.addr_label(),
+                }
             })??;
+        log::trace!("dot: received {} response bytes", response_bytes.len());
 
         let parsed = parse_response(&self.addr_label(), &response_bytes)?;
 
         match parsed.response_code {
             ResponseCode::NoError | ResponseCode::NXDomain => Ok(parsed),
-            code => Err(DohError::Dns {
-                url: self.addr_label(),
-                code,
-            }),
+            code => {
+                log::debug!("dot: {} answered with {code:?}", self.addr_label());
+                Err(DohError::Dns {
+                    url: self.addr_label(),
+                    code,
+                })
+            }
         }
     }
 }

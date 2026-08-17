@@ -23,6 +23,7 @@ rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
 tokio-rustls = { workspace = true }
 quinn = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }

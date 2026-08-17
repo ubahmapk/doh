@@ -17,8 +17,10 @@ async fn do_resolve<T: Transport + ?Sized>(
     name: &str,
     record_type: &str,
 ) -> PyResult<PyParsedResponse> {
-    let record_type = RecordType::from_str(&record_type.to_uppercase())
-        .map_err(|_| DohError::new_err(format!("unknown record type '{record_type}'")))?;
+    let record_type = RecordType::from_str(&record_type.to_uppercase()).map_err(|_| {
+        log::debug!("do_resolve: unknown record type '{record_type}'");
+        DohError::new_err(format!("unknown record type '{record_type}'"))
+    })?;
 
     transport
         .resolve(name, record_type)
@@ -42,18 +44,24 @@ async fn do_resolve_many<T: Transport + ?Sized>(
 ) -> PyResult<Vec<PyQueryResult>> {
     let mut parsed = Vec::with_capacity(record_types.len());
     for rt in record_types {
-        let record_type = RecordType::from_str(&rt.to_uppercase())
-            .map_err(|_| DohError::new_err(format!("unknown record type '{rt}'")))?;
+        let record_type = RecordType::from_str(&rt.to_uppercase()).map_err(|_| {
+            log::debug!("resolve_many: unknown record type '{rt}', aborting before any query");
+            DohError::new_err(format!("unknown record type '{rt}'"))
+        })?;
         parsed.push((rt.clone(), record_type));
     }
 
     let mut results = Vec::with_capacity(parsed.len());
     for (record_type_str, record_type) in parsed {
+        log::debug!("resolve_many: querying {name} {record_type_str}");
         let result = match transport.resolve(name, record_type).await {
             Ok(response) => {
                 PyQueryResult::success(record_type_str, PyParsedResponse::from(response))
             }
-            Err(e) => PyQueryResult::failure(record_type_str, e.to_string()),
+            Err(e) => {
+                log::debug!("resolve_many: {record_type_str} failed: {e}");
+                PyQueryResult::failure(record_type_str, e.to_string())
+            }
         };
         results.push(result);
     }
