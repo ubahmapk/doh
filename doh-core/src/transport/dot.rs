@@ -12,7 +12,9 @@ use tokio_rustls::TlsConnector;
 
 use crate::error::DohError;
 use crate::message::{build_query, encode_query, parse_response, ParsedResponse};
-use crate::transport::util::{native_root_store, parse_host_port};
+use crate::transport::util::{
+    check_response_size, frame_message, native_root_store, parse_host_port,
+};
 use crate::transport::Transport;
 
 /// Default DNS-over-TLS port, per RFC 7858 section 3.1.
@@ -22,12 +24,6 @@ const DEFAULT_PORT: u16 = 853;
 /// fallback transport, so a slow/black-holing server must fail cleanly
 /// rather than hang the caller forever.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Cap on how much of a response we'll read into memory. Classic DNS
-/// message framing (RFC 1035 section 4.2.2, reused for DoT by RFC 7858
-/// section 3.3) prefixes each message with a 2-byte length, capping any
-/// single message at 64 KiB; we simply honor that cap when reading.
-const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
 /// A DNS-over-TLS transport (RFC 7858) bound to a single `host:port`.
 ///
@@ -117,25 +113,14 @@ impl DotTransport {
 
         // RFC 1035 section 4.2.2 / RFC 7858 section 3.3: each DNS message
         // over a stream transport is prefixed with a 2-byte length.
-        let len = u16::try_from(wire.len()).map_err(|_| DohError::MessageTooLarge {
-            addr: addr_label.clone(),
-            reason: format!("query is {} bytes", wire.len()),
-        })?;
-        let mut framed = Vec::with_capacity(2 + wire.len());
-        framed.extend_from_slice(&len.to_be_bytes());
-        framed.extend_from_slice(wire);
+        let framed = frame_message(wire, &addr_label)?;
         tls.write_all(&framed).await.map_err(io_err)?;
         tls.flush().await.map_err(io_err)?;
 
         let mut len_buf = [0u8; 2];
         tls.read_exact(&mut len_buf).await.map_err(io_err)?;
         let response_len = u16::from_be_bytes(len_buf) as usize;
-        if response_len > MAX_RESPONSE_BYTES {
-            return Err(DohError::MessageTooLarge {
-                addr: addr_label,
-                reason: format!("server announced a {response_len}-byte response"),
-            });
-        }
+        check_response_size(response_len, &addr_label)?;
 
         let mut response_buf = vec![0u8; response_len];
         tls.read_exact(&mut response_buf).await.map_err(io_err)?;

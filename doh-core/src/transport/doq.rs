@@ -11,7 +11,9 @@ use tokio::time::timeout;
 
 use crate::error::DohError;
 use crate::message::{build_query, encode_query_doq, parse_response, ParsedResponse};
-use crate::transport::util::{native_root_store, parse_host_port};
+use crate::transport::util::{
+    check_response_size, frame_message, native_root_store, parse_host_port,
+};
 use crate::transport::Transport;
 
 /// Default DNS-over-QUIC port, per RFC 9250 section 4.1.1 (shared with DoT).
@@ -25,11 +27,6 @@ const ALPN_DOQ: &[u8] = b"doq";
 /// fallback transport, so a slow/black-holing server must fail cleanly
 /// rather than hang the caller forever.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Cap on how much of a response we'll read into memory. RFC 9250 section
-/// 4.2 reuses RFC 1035 section 4.2.2's 2-byte length-prefixed framing, so
-/// any single message is capped at 64 KiB the same way DoT is.
-const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
 /// Lazily-created QUIC endpoint plus the currently-live connection (if
 /// any), guarded together so concurrent `resolve()` calls don't race to
@@ -183,13 +180,7 @@ impl DoqTransport {
             .map_err(|e| DohError::quic(&addr_label, e))?;
 
         // Same 2-byte length-prefixed framing as DoT (RFC 9250 section 4.2).
-        let len = u16::try_from(wire.len()).map_err(|_| DohError::MessageTooLarge {
-            addr: addr_label.clone(),
-            reason: format!("query is {} bytes", wire.len()),
-        })?;
-        let mut framed = Vec::with_capacity(2 + wire.len());
-        framed.extend_from_slice(&len.to_be_bytes());
-        framed.extend_from_slice(wire);
+        let framed = frame_message(wire, &addr_label)?;
         send.write_all(&framed)
             .await
             .map_err(|e| DohError::quic(&addr_label, e))?;
@@ -202,12 +193,7 @@ impl DoqTransport {
             .await
             .map_err(|e| DohError::quic(&addr_label, e))?;
         let response_len = u16::from_be_bytes(len_buf) as usize;
-        if response_len > MAX_RESPONSE_BYTES {
-            return Err(DohError::MessageTooLarge {
-                addr: addr_label,
-                reason: format!("server announced a {response_len}-byte response"),
-            });
-        }
+        check_response_size(response_len, &addr_label)?;
 
         let mut response_buf = vec![0u8; response_len];
         recv.read_exact(&mut response_buf)
