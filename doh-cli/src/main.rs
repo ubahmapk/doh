@@ -1,7 +1,9 @@
 mod color;
+mod config;
 mod output;
 mod ttl;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::str::FromStr;
 use std::time::Instant;
@@ -11,14 +13,15 @@ use doh_core::{DohTransport, DoqTransport, DotTransport, RecordType, Transport};
 use output::{DisplayOpts, Format, QueryResult};
 use ttl::TtlOpts;
 
-/// Default record types queried when none are given, matching q's
-/// `--default-rr-types` default list.
+/// Default record types queried when none are given (CLI or config),
+/// matching q's `--default-rr-types` default list.
 const DEFAULT_RECORD_TYPES: &[&str] = &["A", "AAAA", "NS", "MX", "TXT", "CNAME"];
 
 /// Resolve a DNS name over a secure transport (DoH, DoT, or DoQ). No
 /// fallback to classic UDP/TCP DNS: on failure this prints a clear error
 /// and exits non-zero. Output formatting and flags closely follow `q`
-/// (natesales/q).
+/// (natesales/q). Defaults for most flags can be set in a config file;
+/// see `--config`.
 #[derive(Parser)]
 #[command(name = "doh", version, about)]
 struct Args {
@@ -26,62 +29,99 @@ struct Args {
     name: String,
 
     /// DNS record type(s) to query, e.g. A AAAA MX. Defaults to
-    /// A, AAAA, NS, MX, TXT, CNAME if none are given.
+    /// `default_record_types` from the config file if set, else
+    /// A, AAAA, NS, MX, TXT, CNAME.
     record_types: Vec<String>,
 
     /// Server address. `https://host/path` selects DNS-over-HTTPS;
     /// `tls://host[:port]` selects DNS-over-TLS; `quic://host[:port]`
     /// selects DNS-over-QUIC (default port 853 for both DoT and DoQ).
+    /// Falls back to `server` in the config file if not given.
     #[arg(short, long)]
-    server: String,
+    server: Option<String>,
+
+    /// Path to the config file (default: OS-specific config dir, e.g.
+    /// ~/.config/doh/config.toml on Linux)
+    #[arg(long)]
+    config: Option<PathBuf>,
 
     /// HTTP method used to send the query (DoH only; ignored for DoT/DoQ)
-    #[arg(long, value_enum, default_value = "get")]
-    method: Method,
+    #[arg(long, value_enum)]
+    method: Option<Method>,
 
     /// Output format
-    #[arg(short = 'f', long, value_enum, default_value = "pretty")]
-    format: Format,
+    #[arg(short = 'f', long, value_enum)]
+    format: Option<Format>,
 
     /// Show question section
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     question: bool,
+    /// Don't show question section (overrides a config default of true)
+    #[arg(long = "no-question", conflicts_with = "question")]
+    no_question: bool,
 
-    /// Show answer section
-    #[arg(long, default_value_t = true)]
+    /// Show answer section (default: on)
+    #[arg(long)]
     answer: bool,
+    /// Don't show answer section (overrides a config default of true)
+    #[arg(long = "no-answer", conflicts_with = "answer")]
+    no_answer: bool,
 
     /// Show authority section
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     authority: bool,
+    /// Don't show authority section (overrides a config default of true)
+    #[arg(long = "no-authority", conflicts_with = "authority")]
+    no_authority: bool,
 
     /// Show additional section
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     additional: bool,
+    /// Don't show additional section (overrides a config default of true)
+    #[arg(long = "no-additional", conflicts_with = "additional")]
+    no_additional: bool,
 
     /// Show all sections and statistics
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     all: bool,
+    /// Don't show all sections/statistics (overrides a config default of true)
+    #[arg(long = "no-all", conflicts_with = "all")]
+    no_all: bool,
 
     /// Show time and message statistics
-    #[arg(short = 'S', long, default_value_t = false)]
+    #[arg(short = 'S', long)]
     stats: bool,
+    /// Don't show statistics (overrides a config default of true)
+    #[arg(long = "no-stats", conflicts_with = "stats")]
+    no_stats: bool,
 
     /// Show record values only
-    #[arg(short = 'r', long, default_value_t = false)]
+    #[arg(short = 'r', long)]
     short: bool,
+    /// Show full name/ttl/type/value columns (overrides a config default of true)
+    #[arg(long = "no-short", conflicts_with = "short")]
+    no_short: bool,
 
-    /// Format TTLs in human readable form (e.g. 24h0m0s)
-    #[arg(long, default_value_t = true)]
+    /// Format TTLs in human readable form (e.g. 24h0m0s) (default: on)
+    #[arg(long)]
     pretty_ttls: bool,
+    /// Show TTLs as plain seconds (overrides a config default of true)
+    #[arg(long = "no-pretty-ttls", conflicts_with = "pretty_ttls")]
+    no_pretty_ttls: bool,
 
-    /// Remove zero components of pretty TTLs (24h0m0s -> 24h)
-    #[arg(long, default_value_t = true)]
+    /// Remove zero components of pretty TTLs (24h0m0s -> 24h) (default: on)
+    #[arg(long)]
     short_ttls: bool,
+    /// Keep zero components of pretty TTLs (overrides a config default of true)
+    #[arg(long = "no-short-ttls", conflicts_with = "short_ttls")]
+    no_short_ttls: bool,
 
     /// Round TTLs down to the nearest minute
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     round_ttls: bool,
+    /// Don't round TTLs (overrides a config default of true)
+    #[arg(long = "no-round-ttls", conflicts_with = "round_ttls")]
+    no_round_ttls: bool,
 
     /// Enable color output (default: auto-detect terminal, honors NO_COLOR)
     #[arg(long)]
@@ -90,6 +130,24 @@ struct Args {
     /// Disable color output
     #[arg(long, conflicts_with = "color")]
     no_color: bool,
+}
+
+/// Resolve a tri-state boolean flag pair (`--x`/`--no-x`) to `Some(true)`,
+/// `Some(false)`, or `None` if neither was passed on the CLI.
+fn tri_state(positive: bool, negative: bool) -> Option<bool> {
+    if positive {
+        Some(true)
+    } else if negative {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+/// CLI value, then config value, then the hardcoded default -- the
+/// precedence order for every mergeable setting.
+fn merged<T>(cli: Option<T>, config: Option<T>, default: T) -> T {
+    cli.or(config).unwrap_or(default)
 }
 
 #[derive(Clone, Copy, clap::ValueEnum)]
@@ -103,6 +161,18 @@ impl From<Method> for doh_core::HttpMethod {
         match m {
             Method::Get => doh_core::HttpMethod::Get,
             Method::Post => doh_core::HttpMethod::Post,
+        }
+    }
+}
+
+impl FromStr for Method {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "get" => Ok(Method::Get),
+            "post" => Ok(Method::Post),
+            other => Err(format!("unknown method '{other}' (expected get or post)")),
         }
     }
 }
@@ -141,10 +211,50 @@ async fn main() -> ExitCode {
 
     let args = Args::parse();
 
-    let requested_types: Vec<String> = if args.record_types.is_empty() {
-        DEFAULT_RECORD_TYPES.iter().map(|s| s.to_string()).collect()
-    } else {
+    let config_path = config::resolve_path(args.config.as_deref());
+    let cfg = match &config_path {
+        Some(path) => match config::load(path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => config::Config::default(),
+    };
+
+    let server = match args.server.clone().or_else(|| cfg.server.clone()) {
+        Some(s) => s,
+        None => {
+            let hint = config_path
+                .as_ref()
+                .map(|p| format!(" and none set in {}", p.display()))
+                .unwrap_or_default();
+            eprintln!("error: no --server given{hint}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let method: Method = match args.method {
+        Some(m) => m,
+        None => match &cfg.method {
+            Some(s) => match Method::from_str(s) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("error: invalid 'method' in config: {e}");
+                    return ExitCode::FAILURE;
+                }
+            },
+            None => Method::Get,
+        },
+    };
+
+    let requested_types: Vec<String> = if !args.record_types.is_empty() {
         args.record_types.clone()
+    } else if let Some(types) = &cfg.default_record_types {
+        types.clone()
+    } else {
+        DEFAULT_RECORD_TYPES.iter().map(|s| s.to_string()).collect()
     };
 
     let mut record_types = Vec::with_capacity(requested_types.len());
@@ -158,7 +268,7 @@ async fn main() -> ExitCode {
         }
     }
 
-    let transport = match build_transport(&args.server, args.method.into()) {
+    let transport = match build_transport(&server, method.into()) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("error: {e}");
@@ -172,32 +282,75 @@ async fn main() -> ExitCode {
         let outcome = transport.resolve(&args.name, record_type).await;
         results.push(QueryResult {
             record_type: record_type.to_string(),
-            server: args.server.clone(),
+            server: server.clone(),
             elapsed: start.elapsed(),
             outcome,
         });
     }
 
-    let show_stats = args.stats || args.all;
+    let config_format = match &cfg.format {
+        Some(s) => match parse_format(s) {
+            Some(f) => Some(f),
+            None => {
+                eprintln!("error: invalid 'format' in config: '{s}'");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => None,
+    };
+    let format = merged(args.format, config_format, Format::Pretty);
+
+    let show_question = merged(
+        tri_state(args.question, args.no_question),
+        cfg.question,
+        false,
+    );
+    let show_answer = merged(tri_state(args.answer, args.no_answer), cfg.answer, true);
+    let show_authority = merged(
+        tri_state(args.authority, args.no_authority),
+        cfg.authority,
+        false,
+    );
+    let show_additional = merged(
+        tri_state(args.additional, args.no_additional),
+        cfg.additional,
+        false,
+    );
+    let all = merged(tri_state(args.all, args.no_all), cfg.all, false);
+    let stats = merged(tri_state(args.stats, args.no_stats), cfg.stats, false);
+    let short = merged(tri_state(args.short, args.no_short), cfg.short, false);
+    let pretty_ttls = merged(
+        tri_state(args.pretty_ttls, args.no_pretty_ttls),
+        cfg.pretty_ttls,
+        true,
+    );
+    let short_ttls = merged(
+        tri_state(args.short_ttls, args.no_short_ttls),
+        cfg.short_ttls,
+        true,
+    );
+    let round_ttls = merged(
+        tri_state(args.round_ttls, args.no_round_ttls),
+        cfg.round_ttls,
+        false,
+    );
+
+    let cli_color = tri_state(args.color, args.no_color);
+    let color = color::resolve(cli_color.or(cfg.color));
+
     let opts = DisplayOpts {
-        format: args.format,
-        show_question: args.question || args.all,
-        show_answer: args.answer,
-        show_authority: args.authority || args.all,
-        show_additional: args.additional || args.all,
-        show_stats,
-        short: args.short,
-        color: color::resolve(if args.no_color {
-            Some(false)
-        } else if args.color {
-            Some(true)
-        } else {
-            None
-        }),
+        format,
+        show_question: show_question || all,
+        show_answer,
+        show_authority: show_authority || all,
+        show_additional: show_additional || all,
+        show_stats: stats || all,
+        short,
+        color,
         ttl: TtlOpts {
-            pretty: args.pretty_ttls,
-            short: args.short_ttls,
-            round: args.round_ttls,
+            pretty: pretty_ttls,
+            short: short_ttls,
+            round: round_ttls,
         },
     };
 
@@ -209,5 +362,16 @@ async fn main() -> ExitCode {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+fn parse_format(s: &str) -> Option<Format> {
+    match s.to_ascii_lowercase().as_str() {
+        "pretty" => Some(Format::Pretty),
+        "column" => Some(Format::Column),
+        "json" => Some(Format::Json),
+        "yaml" => Some(Format::Yaml),
+        "raw" => Some(Format::Raw),
+        _ => None,
     }
 }

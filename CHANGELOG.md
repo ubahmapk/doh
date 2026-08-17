@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `doh-cli` now supports a TOML config file for default values, so common
+  invocations can drop repeated flags (most usefully a default
+  `--server`). Location follows OS convention via the `directories` crate
+  (`~/.config/doh/config.toml` on Linux, etc.), overridable with
+  `--config <path>`. Precedence is CLI flag > config file > built-in
+  default; every boolean flag now has a paired `--no-<flag>` so a CLI
+  invocation can always override a config value back off. A missing
+  config file is not an error; a malformed one is, reported clearly. See
+  the README's new "Configuration" section for the full set of keys.
+
 ### Fixed
 
 - `doh-cli` no longer panics with a broken-pipe backtrace when its output

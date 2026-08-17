@@ -68,14 +68,68 @@ Options:
 - `--pretty-ttls` (default on) / `--short-ttls` (default on) / `--round-ttls` — TTL display formatting (e.g. `24h0m0s` → `24h`)
 - `--color` / `--no-color` — color is on by default when stdout is a terminal, off when piped, and honors `NO_COLOR`
 
-There is no default server — you must specify one explicitly. Multiple
-record types are queried sequentially against one transport instance
-(reusing the connection for DoQ's pooled model); if any type's query
-fails, `doh` still queries the rest and reports each result, then exits
-non-zero — a deliberate difference from `q`, which aborts on the first
-failure.
+`--server` isn't required on the command line if a config file supplies
+one (see [Configuration](#configuration) below); otherwise you must
+specify it explicitly. Multiple record types are queried sequentially
+against one transport instance (reusing the connection for DoQ's pooled
+model); if any type's query fails, `doh` still queries the rest and
+reports each result, then exits non-zero — a deliberate difference from
+`q`, which aborts on the first failure.
 
 Run `doh --help` for the full flag list.
+
+## Configuration
+
+Most flags can be given a default in a TOML config file instead of typing
+them every time. **Precedence: CLI flag > config file > built-in default.**
+Every boolean flag has a paired `--no-<flag>` (e.g. `--no-stats`) so a CLI
+invocation can always override a config value back off, not just on.
+
+Default location (via the [`directories`](https://docs.rs/directories) crate):
+
+| OS | Path |
+|---|---|
+| Linux | `~/.config/doh/config.toml` |
+| macOS | `~/Library/Application Support/doh/config.toml` |
+| Windows | `%APPDATA%\doh\config.toml` |
+
+Override with `--config <path>`. A missing config file is not an error
+(built-in defaults apply); a present-but-malformed one is — reported
+clearly, not silently ignored.
+
+Every key is optional; set only what you want to override:
+
+```toml
+# Connection
+server = "https://dns.google/dns-query"
+method = "get"                                    # "get" | "post"
+default_record_types = ["A", "AAAA"]               # overrides the built-in 6-type default
+
+# Output
+format = "pretty"                                  # "pretty" | "column" | "json" | "yaml" | "raw"
+
+# Sections
+question = false
+answer = true
+authority = false
+additional = false
+all = false
+stats = false
+short = false
+
+# TTL display
+pretty_ttls = true
+short_ttls = true
+round_ttls = false
+
+# Color: on if stdout is a terminal, off when piped/NO_COLOR is set, unless
+# explicitly set here or on the CLI
+color = true
+```
+
+With `server = "https://dns.google/dns-query"` set, `doh example.com`
+alone is then equivalent to today's `doh example.com --server
+https://dns.google/dns-query`.
 
 For DoT and DoQ, the same hostname is used both to resolve the connection
 address via the OS resolver and to validate the server's TLS certificate.
