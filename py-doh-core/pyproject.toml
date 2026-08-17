@@ -7,6 +7,19 @@ name = "py-doh-core"
 version = "0.1.0"
 description = "Python bindings for doh-core: a DNS client library for DoH, DoT, and DoQ"
 requires-python = ">=3.9"
+dependencies = [
+    "rich>=15.0.0",
+]
 
 [tool.maturin]
 module-name = "py_doh_core"
+
+[dependency-groups]
+dev = [
+    "ipython>=8.18.1",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

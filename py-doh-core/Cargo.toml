@@ -15,4 +15,5 @@ crate-type = ["cdylib"]
 [dependencies]
 doh-core = { path = "../doh-core" }
 pyo3 = { version = "0.29", features = ["extension-module"] }
+pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }

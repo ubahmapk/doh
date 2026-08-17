@@ -1,13 +1,15 @@
 # py-doh-core
 
-Experimental Python bindings for [`doh-core`](../doh-core), via
+Python bindings for [`doh-core`](../doh-core), via
 [PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs). Not published to
-PyPI yet.
+PyPI.
 
-**Status: first-pass proof of pipeline, not full parity with `doh-core`.**
-Only `PyDohTransport` (DoH, GET only) and a blocking `resolve()` are
-implemented. `DotTransport`/`DoqTransport`, POST, and a richer answer type
-(currently plain `dict`s) are follow-ups.
+`PyDohTransport` (DoH, GET or POST), `PyDotTransport` (DoT), and
+`PyDoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
+an `async def`-compatible `aresolve()`. Responses come back as typed
+`PyParsedResponse`/`PyAnswer` objects (see `py_doh_core.pyi` for the full
+shape) mirroring every field of `doh_core::ParsedResponse`, not plain
+dicts.
 
 This crate is intentionally **excluded** from the main Cargo workspace
 (see the root `Cargo.toml`): it's a PyO3 `cdylib` extension module, which
@@ -25,13 +27,29 @@ maturin develop
 ```
 
 ```python
+import asyncio
 import py_doh_core
 
 transport = py_doh_core.PyDohTransport("https://dns.google/dns-query")
-for answer in transport.resolve("example.com", "A"):
-    print(answer)  # {"name": ..., "ttl": ..., "record_type": ..., "rdata": ...}
+response = transport.resolve("example.com", "A")
+print(response.response_code, response.answers[0].rdata)
+
+dot = py_doh_core.PyDotTransport("dns.google")
+response = asyncio.run(dot.aresolve("example.com", "AAAA"))
+print(response)
 ```
 
 Errors (bad server URL, DNS failures, `SERVFAIL`/`REFUSED`, etc.) raise
 `py_doh_core.DohError` with the same message `doh-core` itself produces —
 no fallback to classic plaintext DNS, same as the Rust library.
+
+## Tests
+
+```sh
+pip install pytest pytest-asyncio
+pytest
+```
+
+`tests/test_resolve.py` runs live against real public resolvers (no
+mocking layer, same approach the Rust side uses). DoT/DoQ cases skip
+automatically if port 853 is unreachable on the current network.
