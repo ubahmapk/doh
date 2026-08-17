@@ -73,7 +73,10 @@ impl Transport for DotTransport {
         name: &str,
         record_type: RecordType,
     ) -> Result<ParsedResponse, DohError> {
-        log::debug!("dot: querying {name} {record_type} via {}", self.addr_label());
+        log::debug!(
+            "dot: querying {name} {record_type} via {}",
+            self.addr_label()
+        );
 
         let query = build_query(name, record_type)?;
         let wire = encode_query(&query)?;

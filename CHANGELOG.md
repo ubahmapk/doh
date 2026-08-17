@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-17
+
+### Added
+
+- `doh-core`'s DoH/DoT/DoQ transports now emit `debug`/`trace`-level
+  records via the `log` crate at query start, connection reuse (DoQ's
+  pooled connection), response codes, timeouts, and errors.
+- `py-doh-core` bridges those records to Python's stdlib `logging`
+  module via `pyo3-log`, so verbose/debug output is controlled the
+  normal Python way (`logging.basicConfig(level=logging.DEBUG)`) with
+  no new API to learn. Only `doh_core`/`py_doh_core` log targets are
+  bridged — dependency crates (reqwest, h2, rustls, quinn) are
+  deliberately excluded, since they log from long-lived background
+  threads that can outlive a single `resolve()` call and crash if they
+  attach to Python during interpreter shutdown. See py-doh-core/doh.md's
+  new "Logging" section.
+
 ## [0.3.1] - 2026-08-17
 
 ### Fixed

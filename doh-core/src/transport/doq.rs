@@ -147,7 +147,10 @@ impl Transport for DoqTransport {
         name: &str,
         record_type: RecordType,
     ) -> Result<ParsedResponse, DohError> {
-        log::debug!("doq: querying {name} {record_type} via {}", self.addr_label());
+        log::debug!(
+            "doq: querying {name} {record_type} via {}",
+            self.addr_label()
+        );
 
         let query = build_query(name, record_type)?;
         // RFC 9250 section 4.2.1: the DNS message ID MUST be 0 on the wire.

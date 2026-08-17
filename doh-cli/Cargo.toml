@@ -15,7 +15,7 @@ name = "doh"
 path = "src/main.rs"
 
 [dependencies]
-doh-core = { path = "../doh-core", version = "0.3.1" }
+doh-core = { path = "../doh-core", version = "0.4.0" }
 tokio = { workspace = true }
 clap = { workspace = true }
 thiserror = { workspace = true }
