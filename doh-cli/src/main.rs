@@ -375,3 +375,63 @@ fn parse_format(s: &str) -> Option<Format> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // tri_state: precedence bugs here are silent -- a config value failing
+    // to override, or overriding when it shouldn't, wouldn't error or
+    // crash, it would just quietly do the wrong thing. Worth pinning down
+    // exactly.
+
+    #[test]
+    fn tri_state_positive_flag_is_some_true() {
+        assert_eq!(tri_state(true, false), Some(true));
+    }
+
+    #[test]
+    fn tri_state_negative_flag_is_some_false() {
+        assert_eq!(tri_state(false, true), Some(false));
+    }
+
+    #[test]
+    fn tri_state_neither_flag_is_none() {
+        assert_eq!(tri_state(false, false), None);
+    }
+
+    #[test]
+    fn tri_state_positive_wins_if_somehow_both_set() {
+        // clap's `conflicts_with` prevents `--x --no-x` together at the CLI
+        // layer, but the function itself doesn't enforce that -- document
+        // its actual (positive-wins) behavior directly.
+        assert_eq!(tri_state(true, true), Some(true));
+    }
+
+    // merged: CLI > config > hardcoded default, for every mergeable
+    // setting (server, method, format, every section/TTL/color flag).
+
+    #[test]
+    fn merged_cli_value_wins_over_config_and_default() {
+        assert_eq!(merged(Some(1), Some(2), 3), 1);
+    }
+
+    #[test]
+    fn merged_config_value_wins_over_default_when_cli_absent() {
+        assert_eq!(merged(None, Some(2), 3), 2);
+    }
+
+    #[test]
+    fn merged_default_used_when_cli_and_config_absent() {
+        assert_eq!(merged(None::<i32>, None, 3), 3);
+    }
+
+    #[test]
+    fn merged_works_with_bool_and_string_types_too() {
+        assert!(merged(Some(true), None, false));
+        assert_eq!(
+            merged(None, Some("config".to_string()), "default".to_string()),
+            "config"
+        );
+    }
+}
