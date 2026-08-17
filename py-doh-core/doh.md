@@ -28,6 +28,9 @@ pip install maturin
 maturin develop
 ```
 
+The convention used here and throughout `tests/test_resolve.py` is to
+import the module as `doh`:
+
 ```python
 import asyncio
 import py_doh_core as doh
@@ -46,8 +49,8 @@ print(asyncio.run(main()))
 ```
 
 Errors (bad server URL, DNS failures, `SERVFAIL`/`REFUSED`, etc.) raise
-`py_doh_core.DohError` with the same message `doh-core` itself produces —
-no fallback to classic plaintext DNS, same as the Rust library.
+`doh.DohError` with the same message `doh-core` itself produces — no
+fallback to classic plaintext DNS, same as the Rust library.
 
 ## Tests
 
