@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
 members = ["doh-core", "doh-cli"]
+# py-doh-core is a PyO3 extension-module crate: it needs maturin's linker
+# setup (Python symbols resolved at import time, not link time), so plain
+# `cargo build`/`cargo test --workspace` can't build it -- confirmed this
+# breaks the link step otherwise. Excluded so it's built independently via
+# `cd py-doh-core && maturin develop`, with its own Cargo.lock.
+exclude = ["py-doh-core"]
 
 [workspace.package]
 version = "0.3.1"

@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "py-doh-core"
+version = "0.1.0"
+description = "Python bindings for doh-core: a DNS client library for DoH, DoT, and DoQ"
+requires-python = ">=3.9"
+
+[tool.maturin]
+module-name = "py_doh_core"
