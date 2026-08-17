@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invocation can always override a config value back off. A missing
   config file is not an error; a malformed one is, reported clearly. See
   the README's new "Configuration" section for the full set of keys.
+- `doh --init-config` creates a fully commented-out config template at
+  the config path (`--config <path>` if given, else the OS default),
+  ready to uncomment and edit. Won't overwrite an existing file — warns
+  to stderr and exits non-zero instead.
 
 ### Fixed
 

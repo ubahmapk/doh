@@ -97,6 +97,12 @@ Override with `--config <path>`. A missing config file is not an error
 (built-in defaults apply); a present-but-malformed one is — reported
 clearly, not silently ignored.
 
+Run `doh --init-config` to create a starter template at that location (or
+at `--config <path>` if given). The template has every key present but
+commented out, so it changes no behavior until you uncomment something.
+It won't overwrite an existing file — if one's already there, `doh` warns
+and exits non-zero instead.
+
 Every key is optional; set only what you want to override:
 
 ```toml

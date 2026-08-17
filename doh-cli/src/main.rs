@@ -26,7 +26,8 @@ const DEFAULT_RECORD_TYPES: &[&str] = &["A", "AAAA", "NS", "MX", "TXT", "CNAME"]
 #[command(name = "doh", version, about)]
 struct Args {
     /// Name to resolve, e.g. example.com
-    name: String,
+    #[arg(required_unless_present = "init_config")]
+    name: Option<String>,
 
     /// DNS record type(s) to query, e.g. A AAAA MX. Defaults to
     /// `default_record_types` from the config file if set, else
@@ -44,6 +45,11 @@ struct Args {
     /// ~/.config/doh/config.toml on Linux)
     #[arg(long)]
     config: Option<PathBuf>,
+
+    /// Create a fully commented-out config template at the config path
+    /// (see --config) and exit. Fails if a file is already there.
+    #[arg(long)]
+    init_config: bool,
 
     /// HTTP method used to send the query (DoH only; ignored for DoT/DoQ)
     #[arg(long, value_enum)]
@@ -212,6 +218,36 @@ async fn main() -> ExitCode {
     let args = Args::parse();
 
     let config_path = config::resolve_path(args.config.as_deref());
+
+    if args.init_config {
+        let Some(path) = &config_path else {
+            eprintln!("error: could not determine a config directory for this OS");
+            return ExitCode::FAILURE;
+        };
+        return match config::init(path) {
+            Ok(()) => {
+                println!("Created config template at {}", path.display());
+                ExitCode::SUCCESS
+            }
+            Err(e @ config::ConfigError::AlreadyExists { .. }) => {
+                eprintln!("warning: {e}");
+                ExitCode::FAILURE
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
+    // Guaranteed `Some` here: clap's `required_unless_present = "init_config"`
+    // means the only way to reach this point with `name` absent is the
+    // `--init-config` branch above, which already returned.
+    let name = args
+        .name
+        .clone()
+        .expect("name is required unless --init-config");
+
     let cfg = match &config_path {
         Some(path) => match config::load(path) {
             Ok(cfg) => cfg,
@@ -279,7 +315,7 @@ async fn main() -> ExitCode {
     let mut results = Vec::with_capacity(record_types.len());
     for record_type in record_types {
         let start = Instant::now();
-        let outcome = transport.resolve(&args.name, record_type).await;
+        let outcome = transport.resolve(&name, record_type).await;
         results.push(QueryResult {
             record_type: record_type.to_string(),
             server: server.clone(),
