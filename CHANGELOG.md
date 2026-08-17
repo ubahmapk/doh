@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-16
+
 ### Added
 
 - `doh-cli` now supports a TOML config file for default values, so common
@@ -22,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the config path (`--config <path>` if given, else the OS default),
   ready to uncomment and edit. Won't overwrite an existing file — warns
   to stderr and exits non-zero instead.
+
+### Changed
+
+- Deduplicated the DoT/DoQ stream-framing logic (RFC 1035 §4.2.2
+  length-prefixing and the 64 KiB response-size check, previously
+  inlined identically in both `dot.rs` and `doq.rs`) into shared,
+  directly unit-tested helpers in `transport/util.rs`. No behavior
+  change; improves test coverage of the one part of those transports
+  that's both pure and risky to get wrong.
 
 ### Fixed
 
@@ -130,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858
 [RFC 9250]: https://www.rfc-editor.org/rfc/rfc9250
 
-[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ubahmapk/doh/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ubahmapk/doh/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ubahmapk/doh/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ubahmapk/doh/releases/tag/v0.1.0
