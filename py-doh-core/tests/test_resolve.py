@@ -15,7 +15,7 @@ NXDOMAIN = "Non-Existent Domain"
 
 DOH_GET = py_doh_core.PyDohTransport("https://dns.google/dns-query")
 DOH_POST = py_doh_core.PyDohTransport("https://cloudflare-dns.com/dns-query", "post")
-DOT = py_doh_core.PyDotTransport("dns.google")
+DOT = py_doh_core.PyDotTransport("dns.nextdns.io")
 DOQ = py_doh_core.PyDoqTransport("dns.adguard.com")
 
 TRANSPORTS = [DOH_GET, DOH_POST, DOT, DOQ]
