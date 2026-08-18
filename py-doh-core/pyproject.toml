@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "py-doh-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python bindings for doh-core: a DNS client library for DoH, DoT, and DoQ"
 readme = "doh.md"
 license = "MIT"

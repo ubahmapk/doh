@@ -156,14 +156,3 @@ pytest
 `tests/test_resolve.py` runs live against real public resolvers (no mocking
 layer, same approach the Rust side uses). DoT/DoQ cases skip automatically
 if port 853 is unreachable on the current network.
-
-### Releasing
-
-Wheels (Linux/macOS/Windows, one per platform via PyO3's `abi3-py39` stable
-ABI — no per-Python-version rebuilds needed) and an sdist are built and
-published to PyPI by
-[`.github/workflows/py-doh-core-release.yml`](https://github.com/ubahmapk/doh/blob/main/.github/workflows/py-doh-core-release.yml),
-triggered by pushing a tag matching `py-v*` (e.g. `py-v0.1.0` — distinct from
-the Rust crates' plain `v*` tags, since this package versions independently).
-Publishing uses PyPI [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
-(OIDC), so no API token is stored as a secret.
