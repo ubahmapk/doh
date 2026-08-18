@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Python bindings for doh-core: a DNS client library for DoH, DoT, and DoQ"
 readme = "doh.md"
 license = "MIT"
+license-files = []
 authors = [{ name = "Jon Mark Allen", email = "ubahmapk@gmail.com" }]
 requires-python = ">=3.9"
 dependencies = []

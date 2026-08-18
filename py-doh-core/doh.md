@@ -1,8 +1,11 @@
 # py-doh-core
 
 Python bindings for [`doh-core`](../doh-core), via
-[PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs). Not yet published
-to PyPI.
+[PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs).
+
+```sh
+pip install py-doh-core
+```
 
 `DohTransport` (DoH, GET or POST), `DotTransport` (DoT), and
 `DoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
