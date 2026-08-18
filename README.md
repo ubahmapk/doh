@@ -207,7 +207,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-Not published to PyPI, and excluded from the main Cargo workspace (it's a
+Not yet published to PyPI, and excluded from the main Cargo workspace (it's a
 `cdylib` extension module built via `maturin`, not `cargo`). See
 [`py-doh-core/doh.md`](py-doh-core/doh.md) for building it locally, the
 full API, and more on logging (scoping verbosity, what logs at which

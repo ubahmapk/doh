@@ -86,6 +86,8 @@ pub struct PyDohTransport {
 
 #[pymethods]
 impl PyDohTransport {
+    /// `server_url`: e.g. "https://dns.google/dns-query" (must be https).
+    /// `method`: "get" (default) or "post", case-insensitive.
     #[new]
     #[pyo3(signature = (server_url, method=None))]
     fn new(server_url: String, method: Option<String>) -> PyResult<Self> {
@@ -167,6 +169,9 @@ impl PyDotTransport {
         })
     }
 
+    /// Resolve `name`/`record_type` (e.g. "A", "AAAA", "MX"), blocking the
+    /// calling Python thread. The GIL is released for the duration of the
+    /// network call, so other Python threads keep running.
     fn resolve(
         &self,
         py: Python<'_>,
@@ -177,6 +182,7 @@ impl PyDotTransport {
         py.detach(|| runtime().block_on(do_resolve(inner.as_ref(), &name, &record_type)))
     }
 
+    /// Resolve `name`/`record_type`, returning a Python awaitable.
     fn aresolve<'py>(
         &self,
         py: Python<'py>,
@@ -189,6 +195,10 @@ impl PyDotTransport {
         })
     }
 
+    /// Resolve `name` against every type in `record_types` (e.g. `["A",
+    /// "AAAA", "MX"]`), blocking. Queries run in turn against this same
+    /// transport; one type's failure doesn't abort the rest -- see
+    /// `QueryResult`.
     fn resolve_many(
         &self,
         py: Python<'_>,
@@ -199,6 +209,7 @@ impl PyDotTransport {
         py.detach(|| runtime().block_on(do_resolve_many(inner.as_ref(), &name, &record_types)))
     }
 
+    /// Same as `resolve_many`, returning a Python awaitable.
     fn aresolve_many<'py>(
         &self,
         py: Python<'py>,
@@ -231,6 +242,9 @@ impl PyDoqTransport {
         })
     }
 
+    /// Resolve `name`/`record_type` (e.g. "A", "AAAA", "MX"), blocking the
+    /// calling Python thread. The GIL is released for the duration of the
+    /// network call, so other Python threads keep running.
     fn resolve(
         &self,
         py: Python<'_>,
@@ -241,6 +255,7 @@ impl PyDoqTransport {
         py.detach(|| runtime().block_on(do_resolve(inner.as_ref(), &name, &record_type)))
     }
 
+    /// Resolve `name`/`record_type`, returning a Python awaitable.
     fn aresolve<'py>(
         &self,
         py: Python<'py>,
@@ -253,6 +268,10 @@ impl PyDoqTransport {
         })
     }
 
+    /// Resolve `name` against every type in `record_types` (e.g. `["A",
+    /// "AAAA", "MX"]`), blocking. Queries run in turn against this same
+    /// transport, reusing the pooled connection; one type's failure
+    /// doesn't abort the rest -- see `QueryResult`.
     fn resolve_many(
         &self,
         py: Python<'_>,
@@ -263,6 +282,7 @@ impl PyDoqTransport {
         py.detach(|| runtime().block_on(do_resolve_many(inner.as_ref(), &name, &record_types)))
     }
 
+    /// Same as `resolve_many`, returning a Python awaitable.
     fn aresolve_many<'py>(
         &self,
         py: Python<'py>,

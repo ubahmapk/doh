@@ -13,13 +13,19 @@ use pyo3::prelude::*;
 )]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PyOpCode {
-    Query,
-    Status,
-    Notify,
-    Update,
+    // Explicit discriminants matching the real DNS OPCODE wire values
+    // (RFC 1035/1996/2136), not Rust's default 0/1/2/3 -- so
+    // `int(OpCode.STATUS)` etc. equal what the RFCs actually define,
+    // not just an arbitrary sequential index.
+    Query = 0,
+    Status = 2,
+    Notify = 4,
+    Update = 5,
     /// Any opcode not covered above -- the server's own response is
-    /// simply echoed back and not otherwise validated.
-    Unknown,
+    /// simply echoed back and not otherwise validated. The specific
+    /// wire value isn't preserved, so this uses 3 (an unassigned/
+    /// reserved opcode per RFC 1035) rather than colliding with a real one.
+    Unknown = 3,
 }
 
 impl std::fmt::Display for PyOpCode {
@@ -54,10 +60,14 @@ impl From<OpCode> for PyOpCode {
 #[pyclass(eq, eq_int, hash, frozen, skip_from_py_object, name = "ResponseCode")]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PyResponseCode {
+    // Explicit discriminants matching the real DNS RCODE wire values
+    // (RFC 1035), not Rust's default 0/1 -- NXDOMAIN is wire value 3
+    // (NoError=0, FormErr=1, ServFail=2, NXDomain=3), so
+    // `int(ResponseCode.NXDOMAIN)` equals what the RFC actually defines.
     #[pyo3(name = "NOERROR")]
-    NoError,
+    NoError = 0,
     #[pyo3(name = "NXDOMAIN")]
-    NxDomain,
+    NxDomain = 3,
 }
 
 impl std::fmt::Display for PyResponseCode {

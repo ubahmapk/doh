@@ -1,8 +1,8 @@
 # py-doh-core
 
 Python bindings for [`doh-core`](../doh-core), via
-[PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs). Not published to
-PyPI.
+[PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs). Not yet published
+to PyPI.
 
 `DohTransport` (DoH, GET or POST), `DotTransport` (DoT), and
 `DoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
@@ -42,6 +42,7 @@ transport = doh.DohTransport("https://dns.google/dns-query")
 response = transport.resolve("example.com", "A")
 assert response.response_code == doh.ResponseCode.NOERROR
 print(response.response_code, response.answers[0].rdata)
+
 
 async def main():
     dot = doh.DotTransport("dns.google")
@@ -85,6 +86,7 @@ separate init call needed:
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 ```
 
@@ -111,3 +113,17 @@ pytest
 `tests/test_resolve.py` runs live against real public resolvers (no
 mocking layer, same approach the Rust side uses). DoT/DoQ cases skip
 automatically if port 853 is unreachable on the current network.
+
+## Releasing
+
+Wheels (Linux/macOS/Windows, one per platform via PyO3's `abi3-py39`
+stable ABI -- no per-Python-version rebuilds needed) and an sdist are
+built and published to PyPI by
+[`.github/workflows/py-doh-core-release.yml`](../.github/workflows/py-doh-core-release.yml),
+triggered by pushing a tag matching `py-v*` (e.g. `py-v0.1.0` --
+distinct from the Rust crates' plain `v*` tags, since this package
+versions independently). Publishing uses PyPI
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC),
+so no API token is stored as a secret; the PyPI project must have this
+repo/workflow/`pypi` environment registered as a pending publisher
+before the first release.

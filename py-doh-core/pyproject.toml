@@ -6,10 +6,25 @@ build-backend = "maturin"
 name = "py-doh-core"
 version = "0.1.0"
 description = "Python bindings for doh-core: a DNS client library for DoH, DoT, and DoQ"
+readme = "doh.md"
+license = "MIT"
+authors = [{ name = "Jon Mark Allen", email = "ubahmapk@gmail.com" }]
 requires-python = ">=3.9"
-dependencies = [
-    "rich>=15.0.0",
+dependencies = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Internet :: Name Service (DNS)",
+    "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ubahmapk/doh"
+Repository = "https://github.com/ubahmapk/doh"
+Changelog = "https://github.com/ubahmapk/doh/blob/main/CHANGELOG.md"
 
 [tool.maturin]
 module-name = "py_doh_core"

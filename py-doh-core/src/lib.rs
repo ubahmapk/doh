@@ -10,6 +10,11 @@ use runtime::runtime;
 use transport::{PyDohTransport, PyDoqTransport, PyDotTransport};
 use types::{PyAnswer, PyOpCode, PyParsedResponse, PyQueryResult, PyResponseCode};
 
+/// Python bindings for `doh-core`: `DohTransport`, `DotTransport`, and
+/// `DoqTransport` (DNS-over-HTTPS, -TLS, and -QUIC), each with a blocking
+/// `resolve()` and an `async def`-compatible `aresolve()`, plus
+/// `resolve_many()`/`aresolve_many()` for multiple record types in one
+/// call. No fallback to classic plaintext DNS.
 #[pymodule]
 fn py_doh_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Bridge Rust `log` records to Python's stdlib `logging` module, so

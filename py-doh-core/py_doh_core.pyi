@@ -1,4 +1,11 @@
-from typing import ClassVar, Optional
+"""Python bindings for `doh-core`: `DohTransport`, `DotTransport`, and
+`DoqTransport` (DNS-over-HTTPS, -TLS, and -QUIC), each with a blocking
+`resolve()` and an `async def`-compatible `aresolve()`, plus
+`resolve_many()`/`aresolve_many()` for multiple record types in one
+call. No fallback to classic plaintext DNS.
+"""
+
+from typing import ClassVar
 
 class OpCode:
     """The DNS message opcode. Compares equal to its int value too
@@ -122,16 +129,16 @@ class QueryResult:
     record_type: str
     """The record type this result is for, e.g. "A"."""
 
-    response: Optional[ParsedResponse]
+    response: ParsedResponse | None
     """Set on success."""
 
-    error: Optional[str]
+    error: str | None
     """Set on failure -- the same message a raised DohError would carry."""
 
 class DohTransport:
     """A DNS-over-HTTPS transport (RFC 8484) bound to a single server URL."""
 
-    def __init__(self, server_url: str, method: Optional[str] = None) -> None:
+    def __init__(self, server_url: str, method: str | None = None) -> None:
         """server_url: e.g. "https://dns.google/dns-query" (must be https).
         method: "get" (default) or "post", case-insensitive.
         """
@@ -150,7 +157,9 @@ class DohTransport:
         failure doesn't abort the rest -- see QueryResult.
         """
 
-    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+    async def aresolve_many(
+        self, name: str, record_types: list[str]
+    ) -> list[QueryResult]:
         """Same as resolve_many(), as an awaitable."""
 
 class DotTransport:
@@ -173,7 +182,9 @@ class DotTransport:
         failure doesn't abort the rest -- see QueryResult.
         """
 
-    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+    async def aresolve_many(
+        self, name: str, record_types: list[str]
+    ) -> list[QueryResult]:
         """Same as resolve_many(), as an awaitable."""
 
 class DoqTransport:
@@ -197,5 +208,7 @@ class DoqTransport:
         failure doesn't abort the rest -- see QueryResult.
         """
 
-    async def aresolve_many(self, name: str, record_types: list[str]) -> list[QueryResult]:
+    async def aresolve_many(
+        self, name: str, record_types: list[str]
+    ) -> list[QueryResult]:
         """Same as resolve_many(), as an awaitable."""
