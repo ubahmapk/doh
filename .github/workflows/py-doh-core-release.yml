@@ -5,6 +5,12 @@ on:
     tags: ["py-v*"]
   workflow_dispatch:
 
+# Least-privilege default: the build jobs only need to check out the repo
+# and upload artifacts, never write to it. The publish job overrides this
+# with its own narrower id-token-only block (it doesn't check out the repo).
+permissions:
+  contents: read
+
 jobs:
   sdist:
     runs-on: ubuntu-latest
