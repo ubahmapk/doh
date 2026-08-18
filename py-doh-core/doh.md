@@ -1,30 +1,142 @@
 # py-doh-core
 
-Python bindings for [`doh-core`](../doh-core), via
-[PyO3](https://pyo3.rs)/[maturin](https://www.maturin.rs).
+Python bindings for [`doh-core`](https://github.com/ubahmapk/doh/tree/main/doh-core),
+a Rust DNS resolver library that only speaks secure transports — DNS-over-HTTPS
+(RFC 8484), DNS-over-TLS (RFC 7858), and DNS-over-QUIC (RFC 9250) — with **no
+fallback to classic plaintext DNS**. If a query can't be answered securely, you
+get a clear exception instead of a silent, unencrypted lookup.
 
 ```sh
 pip install py-doh-core
 ```
 
-`DohTransport` (DoH, GET or POST), `DotTransport` (DoT), and
-`DoqTransport` (DoQ) are all bound, each with a blocking `resolve()` and
-an `async def`-compatible `aresolve()`, plus `resolve_many()`/
-`aresolve_many()` for querying several record types against one name in
-a single call (mirroring `doh-cli`'s variadic `[record_types...]`
-argument -- see [Multiple record types](#multiple-record-types) below).
-Responses come back as typed `ParsedResponse`/`Answer` objects (see
-`py_doh_core.pyi` for the full shape) mirroring every field of
-`doh_core::ParsedResponse`, not plain dicts. `op_code`/`response_code`
-are `OpCode`/`ResponseCode` enums (e.g. `response.response_code ==
-doh.ResponseCode.NXDOMAIN`), not magic strings.
+## Quickstart
 
-This crate is intentionally **excluded** from the main Cargo workspace
-(see the root `Cargo.toml`): it's a PyO3 `cdylib` extension module, which
-needs `maturin`'s linker setup to resolve Python symbols at import time —
-plain `cargo build`/`cargo test --workspace` can't link it.
+```python
+import py_doh_core as doh
 
-## Build / try it locally
+transport = doh.DohTransport("https://dns.google/dns-query")
+response = transport.resolve("example.com", "A")
+
+for answer in response.answers:
+    print(answer.name, answer.ttl, answer.rdata)
+```
+
+Every `resolve()` has an `async def`-compatible `aresolve()` twin:
+
+```python
+import asyncio
+import py_doh_core as doh
+
+
+async def main() -> None:
+    transport = doh.DotTransport("dns.google")
+    response = await transport.aresolve("example.com", "AAAA")
+    print(response.answers[0].rdata)
+
+
+asyncio.run(main())
+```
+
+`resolve()` blocks the calling thread but releases the GIL for the network
+call, so other Python threads keep running; `aresolve()` returns a normal
+awaitable. Both forms exist on all three transports below.
+
+## Transports
+
+| Class | Protocol | Constructor |
+| --- | --- | --- |
+| `DohTransport` | DNS-over-HTTPS | `DohTransport(server_url, method=None)` — `server_url` e.g. `"https://dns.google/dns-query"` (must be `https://`); `method` is `"get"` (default) or `"post"` |
+| `DotTransport` | DNS-over-TLS | `DotTransport(server_addr)` — `server_addr` is `host[:port]`, default port 853 |
+| `DoqTransport` | DNS-over-QUIC | `DoqTransport(server_addr)` — same `host[:port]` form; the QUIC connection is pooled and reused across every `resolve()`/`aresolve()` call on the instance |
+
+All three share the same API: `resolve`, `aresolve`, `resolve_many`,
+`aresolve_many`. Pick a transport, not a different way of calling it.
+
+## Responses are typed, not dicts
+
+`resolve()`/`aresolve()` return a `ParsedResponse` with real attributes —
+`response.answers[0].rdata`, not `response["answers"][0]["rdata"]` — mirroring
+every field of the underlying `doh_core::ParsedResponse` (header flags,
+question, answer/authority/additional sections, wire size). `op_code` and
+`response_code` are `OpCode`/`ResponseCode` enums, not magic strings or ints:
+
+```python
+if response.response_code == doh.ResponseCode.NXDOMAIN:
+    ...  # the name doesn't exist -- this is a successful response, not an error
+```
+
+See [`py_doh_core.pyi`](https://github.com/ubahmapk/doh/blob/main/py-doh-core/py_doh_core.pyi)
+for the full type signatures.
+
+## Handling errors
+
+Anything that isn't a clean "no error" or "name does not exist" response —
+a bad server URL, a connection failure, `SERVFAIL`, `REFUSED`, a malformed
+reply — raises `doh.DohError` rather than returning a half-empty result:
+
+```python
+try:
+    response = transport.resolve("dnssec-failed.org", "A")
+except doh.DohError as exc:
+    print("lookup failed:", exc)
+```
+
+`str(exc)` carries the same message the underlying Rust library produces.
+
+## Multiple record types in one call
+
+`resolve_many()`/`aresolve_many()` query several record types for one name
+against a single transport instance. Queries run in turn, reusing the
+connection where that matters (`DoqTransport`'s pooled connection in
+particular), and one type's failure doesn't abort the rest — each entry in
+the returned list is a `QueryResult` with exactly one of `response`/`error`
+set:
+
+```python
+for result in transport.resolve_many("example.com", ["A", "AAAA", "MX"]):
+    if result.error is not None:
+        print(result.record_type, "failed:", result.error)
+    else:
+        print(result.record_type, [a.rdata for a in result.response.answers])
+```
+
+An unparseable record type string is the one exception: it raises `DohError`
+immediately, before any query in the batch is sent.
+
+## Logging
+
+Verbose/debug output uses Python's standard `logging` module — no separate
+init call needed:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+```
+
+Logger names follow the Rust module path, e.g. `doh_core.transport.doh`,
+`doh_core.transport.doq`, `py_doh_core.transport`. `DEBUG` shows one line per
+query (server, method, connection reuse, response codes); a small amount of
+extra detail (e.g. response sizes) logs at level `5`, below `logging.DEBUG`
+(10) — pass `level=5` to see it. Scope to just this library with
+`logging.getLogger("doh_core").setLevel(logging.DEBUG)`.
+
+Only `doh_core`/`py_doh_core` targets are bridged to Python — dependency
+crates (`reqwest`, `h2`, `rustls`, `quinn`) are deliberately not, since their
+logging runs on long-lived background threads that can outlive a single
+`resolve()` call and, in rare cases, still be active as the Python
+interpreter shuts down.
+
+## Development
+
+`py-doh-core` is a PyO3 `cdylib` extension module, built with
+[`maturin`](https://www.maturin.rs). It's intentionally excluded from the
+main Cargo workspace (see the root `Cargo.toml`) since it needs maturin's
+linker setup to resolve Python symbols at import time — plain
+`cargo build`/`cargo test --workspace` can't link it.
+
+### Build from source
 
 ```sh
 cd py-doh-core
@@ -34,99 +146,24 @@ pip install maturin
 maturin develop
 ```
 
-The convention used here and throughout `tests/test_resolve.py` is to
-import the module as `doh`:
-
-```python
-import asyncio
-import py_doh_core as doh
-
-transport = doh.DohTransport("https://dns.google/dns-query")
-response = transport.resolve("example.com", "A")
-assert response.response_code == doh.ResponseCode.NOERROR
-print(response.response_code, response.answers[0].rdata)
-
-
-async def main():
-    dot = doh.DotTransport("dns.google")
-    return await dot.aresolve("example.com", "AAAA")
-
-
-print(asyncio.run(main()))
-```
-
-Errors (bad server URL, DNS failures, `SERVFAIL`/`REFUSED`, etc.) raise
-`doh.DohError` with the same message `doh-core` itself produces — no
-fallback to classic plaintext DNS, same as the Rust library.
-
-## Multiple record types
-
-`resolve_many()`/`aresolve_many()` query several record types for one
-name against a single transport instance, matching `doh-cli`'s own
-multi-type behavior: queries run in turn (reusing the connection --
-this matters most for `DoqTransport`'s pooled connection), and one
-type's failure doesn't abort the rest. Each entry in the returned list
-is a `QueryResult` with `record_type`, and exactly one of
-`response`/`error` set:
-
-```python
-transport = doh.DohTransport("https://dns.google/dns-query")
-for result in transport.resolve_many("example.com", ["A", "AAAA", "MX"]):
-    if result.error is not None:
-        print(result.record_type, "failed:", result.error)
-    else:
-        print(result.record_type, [a.rdata for a in result.response.answers])
-```
-
-An unparseable record type string (unlike a per-query network/DNS
-failure) raises `DohError` immediately, before any query is sent —
-also matching `doh-cli`'s CLI-arg validation.
-
-## Logging
-
-Verbose/debug output uses Python's standard `logging` module -- no
-separate init call needed:
-
-```python
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-```
-
-Logger names follow the Rust module path, e.g. `doh_core.transport.doh`,
-`doh_core.transport.doq`, `py_doh_core.transport`. `DEBUG` shows one line
-per query (server, method, connection reuse, response codes); a small
-amount of extra detail (e.g. response sizes) logs at level `5`, below
-`logging.DEBUG` (10) -- pass `level=5` to see it. Scope to just this
-library with `logging.getLogger("doh_core").setLevel(logging.DEBUG)`.
-
-Only `doh_core`/`py_doh_core` targets are bridged to Python -- dependency
-crates (`reqwest`, `h2`, `rustls`, `quinn`) are deliberately not, since
-their logging runs on long-lived background threads that can outlive a
-single `resolve()` call and, in rare cases, still be active as the
-Python interpreter shuts down.
-
-## Tests
+### Tests
 
 ```sh
 pip install pytest pytest-asyncio
 pytest
 ```
 
-`tests/test_resolve.py` runs live against real public resolvers (no
-mocking layer, same approach the Rust side uses). DoT/DoQ cases skip
-automatically if port 853 is unreachable on the current network.
+`tests/test_resolve.py` runs live against real public resolvers (no mocking
+layer, same approach the Rust side uses). DoT/DoQ cases skip automatically
+if port 853 is unreachable on the current network.
 
-## Releasing
+### Releasing
 
-Wheels (Linux/macOS/Windows, one per platform via PyO3's `abi3-py39`
-stable ABI -- no per-Python-version rebuilds needed) and an sdist are
-built and published to PyPI by
-[`.github/workflows/py-doh-core-release.yml`](../.github/workflows/py-doh-core-release.yml),
-triggered by pushing a tag matching `py-v*` (e.g. `py-v0.1.0` --
-distinct from the Rust crates' plain `v*` tags, since this package
-versions independently). Publishing uses PyPI
-[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC),
-so no API token is stored as a secret; the PyPI project must have this
-repo/workflow/`pypi` environment registered as a pending publisher
-before the first release.
+Wheels (Linux/macOS/Windows, one per platform via PyO3's `abi3-py39` stable
+ABI — no per-Python-version rebuilds needed) and an sdist are built and
+published to PyPI by
+[`.github/workflows/py-doh-core-release.yml`](https://github.com/ubahmapk/doh/blob/main/.github/workflows/py-doh-core-release.yml),
+triggered by pushing a tag matching `py-v*` (e.g. `py-v0.1.0` — distinct from
+the Rust crates' plain `v*` tags, since this package versions independently).
+Publishing uses PyPI [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
+(OIDC), so no API token is stored as a secret.
